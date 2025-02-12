@@ -1626,6 +1626,53 @@ WriteDescriptors& WriteDescriptors::AddStorageImage(VulkanDescriptorSet* descrip
 	return *this;
 }
 
+WriteDescriptors& WriteDescriptors::AddImageArray(VulkanDescriptorSet* descriptorSet, int binding, const std::vector<VulkanImageView*> &views, VkImageLayout imageLayout)
+{
+	auto extra = std::make_unique<WriteExtra>();
+	for (auto view : views)
+	{
+		//VkDescriptorImageInfo imageInfo;
+		extra->imageInfos.push_back({
+			VK_NULL_HANDLE,
+			view->view,
+			imageLayout
+		});
+	}
+
+	VkWriteDescriptorSet descriptorWrite = {};
+	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrite.dstSet = descriptorSet->set;
+	descriptorWrite.dstBinding = binding;
+	descriptorWrite.dstArrayElement = 0;
+	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	descriptorWrite.descriptorCount = (uint32_t)extra->imageInfos.size();
+	descriptorWrite.pImageInfo = extra->imageInfos.data();
+	writes.push_back(descriptorWrite);
+	writeExtras.push_back(std::move(extra));
+	return *this;
+}
+
+WriteDescriptors& WriteDescriptors::AddSampler(VulkanDescriptorSet* descriptorSet, int binding, VulkanSampler* sampler)
+{
+	auto extra = std::make_unique<WriteExtra>();
+	extra->imageInfo = {
+		sampler->sampler,
+		VK_NULL_HANDLE,
+		VK_IMAGE_LAYOUT_MAX_ENUM
+	};
+	VkWriteDescriptorSet descriptorWrite = {};
+	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrite.dstSet = descriptorSet->set;
+	descriptorWrite.dstBinding = binding;
+	descriptorWrite.dstArrayElement = 0;
+	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+	descriptorWrite.descriptorCount = 1;
+	descriptorWrite.pImageInfo = &extra->imageInfo;
+	writes.push_back(descriptorWrite);
+	writeExtras.push_back(std::move(extra));
+	return *this;
+}
+
 WriteDescriptors& WriteDescriptors::AddCombinedImageSampler(VulkanDescriptorSet* descriptorSet, int binding, VulkanImageView* view, VulkanSampler* sampler, VkImageLayout imageLayout)
 {
 	return AddCombinedImageSampler(descriptorSet, binding, 0, view, sampler, imageLayout);

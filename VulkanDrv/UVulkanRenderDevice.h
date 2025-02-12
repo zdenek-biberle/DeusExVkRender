@@ -14,6 +14,97 @@
 
 class CachedTexture;
 
+struct Vertex
+{
+	FVector pos;
+};
+
+struct Wedge {
+	float u, v;
+	UINT vertIndex;
+};
+
+struct Surf
+{
+	FVector normal;
+	int texIdx;
+};
+
+
+struct alignas(16) Object {
+	mat4 xform;
+	UINT textures[8];
+	UINT vertexOffset;
+	UINT pad[3];
+	VkDrawIndirectCommand command;
+};
+
+static_assert(sizeof(Object) == 128, "Object size must be 128 bytes");
+
+struct ModelBase {
+	UINT wedgeIndexBase;
+	UINT wedgeIndexCount;
+};
+
+template<typename T>
+struct StagedUpload
+{
+	std::unique_ptr<VulkanBuffer> stagingBuffer;
+	std::unique_ptr<VulkanBuffer> deviceBuffer;
+
+	static StagedUpload<T> create(VulkanDevice* device, size_t count, const char* debugName, VkBufferUsageFlags extraUsageFlags = 0) {
+		auto bufferSize = count * sizeof(T);
+		auto stagingBuffer = BufferBuilder()
+			.Usage(
+				VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+				VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+				VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT)
+			/*.MemoryType(
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)*/
+			.Size(bufferSize)
+			.MinAlignment(16)
+			.DebugName("StagingBuffer")
+			.Create(device);
+
+		auto deviceBuffer = BufferBuilder()
+			.Usage(
+				VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | extraUsageFlags,
+				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE)
+			.Size(bufferSize)
+			.MinAlignment(16)
+			.DebugName(debugName)
+			.Create(device);
+
+		return { std::move(stagingBuffer), std::move(deviceBuffer) };
+	}
+
+	T* map() {
+		return static_cast<T*>(stagingBuffer->Map(0, stagingBuffer->size));
+	}
+
+	void unmap() {
+		stagingBuffer->Unmap();
+	}
+
+	void fillFrom(const std::vector<T>& data) {
+		auto buffer = map();
+		memcpy(buffer, data.data(), data.size() * sizeof(T));
+		unmap();
+	}
+
+	void copy(VulkanCommandBuffer& commands) {
+		commands.copyBuffer(stagingBuffer.get(), deviceBuffer.get());
+	}
+};
+
+struct UploadedTexture
+{
+	std::unique_ptr<VulkanImage> image;
+	std::unique_ptr<VulkanImageView> view;
+	int index;
+};
+
 #if defined(OLDUNREAL469SDK)
 class UVulkanRenderDevice : public URenderDeviceOldUnreal469
 {
@@ -57,12 +148,8 @@ public:
 	void PrecacheTexture(FTextureInfo& Info, DWORD PolyFlags) override;
 	void DrawStats(FSceneNode* Frame) override;
 
-#if defined(OLDUNREAL469SDK)
-	// URenderDeviceOldUnreal469 extensions
-	void DrawGouraudTriangles(const FSceneNode* Frame, const FTextureInfo& Info, FTransTexture* const Pts, INT NumPts, DWORD PolyFlags, DWORD DataFlags, FSpanBuffer* Span) override;
-	UBOOL SupportsTextureFormat(ETextureFormat Format) override;
-	void UpdateTextureRect(FTextureInfo& Info, INT U, INT V, INT UL, INT VL) override;
-#endif
+	// used directly by UVkRender
+	void DrawWorld(FSceneNode* frame);
 
 	int InterfacePadding[64]; // For allowing URenderDeviceOldUnreal469 interface to add things
 
@@ -80,9 +167,6 @@ public:
 	std::unique_ptr<DescriptorSetManager> DescriptorSets;
 	std::unique_ptr<RenderPassManager> RenderPasses;
 	std::unique_ptr<FramebufferManager> Framebuffers;
-
-	bool SupportsBindless = false;
-	bool UsesBindless = false;
 
 	// Configuration.
 	BITFIELD UseVSync;
@@ -107,13 +191,6 @@ public:
 	BITFIELD VkDebug;
 	BITFIELD VkExclusiveFullscreen;
 
-	void RunBloomPass();
-	void BloomStep(VulkanCommandBuffer* cmdbuffer, VulkanPipeline* pipeline, VulkanDescriptorSet* input, VulkanFramebuffer* output, int width, int height, const BloomPushConstants &pushconstants);
-	static float ComputeBlurGaussian(float n, float theta);
-	static void ComputeBlurSamples(int sampleCount, float blurAmount, float* sampleWeights);
-
-	void DrawPresentTexture(int x, int y, int width, int height);
-
 	struct
 	{
 		int ComplexSurfaces = 0;
@@ -126,6 +203,7 @@ public:
 
 	int GetSettingsMultisample()
 	{
+		return 0;
 		switch (AntialiasMode)
 		{
 		default:
@@ -136,9 +214,6 @@ public:
 	}
 
 private:
-	void ClearTextureCache();
-	void BlitSceneToPostprocess();
-
 	UBOOL UsePrecache;
 	FPlane FlashScale;
 	FPlane FlashFog;
@@ -151,9 +226,6 @@ private:
 	bool IsLocked = false;
 
 	void SetPipeline(VulkanPipeline* pipeline);
-	ivec4 SetDescriptorSet(DWORD PolyFlags, CachedTexture* tex, bool clamp = false);
-	ivec4 SetDescriptorSet(DWORD PolyFlags, CachedTexture* tex, CachedTexture* lightmap, CachedTexture* macrotex, CachedTexture* detailtex);
-	void SetDescriptorSet(VulkanDescriptorSet* descriptorSet, bool bindless);
 	void DrawBatch(VulkanCommandBuffer* cmdbuffer);
 	void SubmitAndWait(bool present, int presentWidth, int presentHeight, bool presentFullscreen);
 
@@ -163,8 +235,6 @@ private:
 	{
 		size_t SceneIndexStart = 0;
 		VulkanPipeline* Pipeline = nullptr;
-		VulkanDescriptorSet* DescriptorSet = nullptr;
-		bool Bindless = false;
 	} Batch;
 
 	ScenePushConstants pushconstants;
@@ -172,20 +242,34 @@ private:
 	size_t SceneVertexPos = 0;
 	size_t SceneIndexPos = 0;
 
-	struct HitQuery
-	{
-		INT Start = 0;
-		INT Count = 0;
+	struct PerFrame {
+		StagedUpload<Object> objectUpload;
+		std::unique_ptr<VulkanCommandBuffer> objectUploadCommands;
 	};
 
-	BYTE* HitData = nullptr;
-	INT* HitSize = nullptr;
-	std::vector<BYTE> HitQueryStack;
-	std::vector<HitQuery> HitQueries;
-	std::vector<BYTE> HitBuffer;
+	struct LastScene
+	{
+		ULevel* level;
+		std::unique_ptr<VulkanBuffer> surfBuffer;
+		std::unique_ptr<VulkanBuffer> wedgeBuffer;
+		std::unique_ptr<VulkanBuffer> vertBuffer;
+		std::unique_ptr<VulkanBuffer> surfIdxBuffer;
+		std::unique_ptr<VulkanBuffer> wedgeIdxBuffer;
+		std::map<UModel*, ModelBase> modelBases;
+		std::map<UMesh*, ModelBase> meshBases;
+		std::map<UTexture*, UploadedTexture> textureBuffers;
+		int maxNumObjects;
 
-	int ForceHitIndex = -1;
-	HitQuery ForceHit;
+		PerFrame perFrame[2];
+		bool oddEven;
+
+		std::set<UModel*> missingModels;
+		std::set<UMesh*> missingMeshes;
+		std::set<UTexture*> missingTextures;
+
+		std::optional<ModelBase> modelBaseForActor(const AActor* actor);
+	};
+	std::optional<LastScene> lastScene;
 };
 
 inline void UVulkanRenderDevice::SetPipeline(VulkanPipeline* pipeline)
@@ -194,54 +278,6 @@ inline void UVulkanRenderDevice::SetPipeline(VulkanPipeline* pipeline)
 	{
 		DrawBatch(Commands->GetDrawCommands());
 		Batch.Pipeline = pipeline;
-	}
-}
-
-inline ivec4 UVulkanRenderDevice::SetDescriptorSet(DWORD PolyFlags, CachedTexture* tex, bool clamp)
-{
-	if (UsesBindless)
-	{
-		SetDescriptorSet(DescriptorSets->GetBindlessSet(), true);
-		return ivec4(DescriptorSets->GetTextureArrayIndex(PolyFlags, tex, clamp), 0, 0, 0);
-	}
-	else
-	{
-		SetDescriptorSet(DescriptorSets->GetTextureSet(PolyFlags, tex, nullptr, nullptr, nullptr, clamp), false);
-		return ivec4(0);
-	}
-}
-
-inline ivec4 UVulkanRenderDevice::SetDescriptorSet(DWORD PolyFlags, CachedTexture* tex, CachedTexture* lightmap, CachedTexture* macrotex, CachedTexture* detailtex)
-{
-	ivec4 textureBinds;
-	if (UsesBindless)
-	{
-		textureBinds.x = DescriptorSets->GetTextureArrayIndex(PolyFlags, tex);
-		textureBinds.y = DescriptorSets->GetTextureArrayIndex(0, macrotex);
-		textureBinds.z = DescriptorSets->GetTextureArrayIndex(0, detailtex);
-		textureBinds.w = DescriptorSets->GetTextureArrayIndex(0, lightmap);
-
-		SetDescriptorSet(DescriptorSets->GetBindlessSet(), true);
-	}
-	else
-	{
-		textureBinds.x = 0.0f;
-		textureBinds.y = 0.0f;
-		textureBinds.z = 0.0f;
-		textureBinds.w = 0.0f;
-
-		SetDescriptorSet(DescriptorSets->GetTextureSet(PolyFlags, tex, lightmap, macrotex, detailtex), false);
-	}
-	return textureBinds;
-}
-
-inline void UVulkanRenderDevice::SetDescriptorSet(VulkanDescriptorSet* descriptorSet, bool bindless)
-{
-	if (descriptorSet != Batch.DescriptorSet)
-	{
-		DrawBatch(Commands->GetDrawCommands());
-		Batch.DescriptorSet = descriptorSet;
-		Batch.Bindless = bindless;
 	}
 }
 

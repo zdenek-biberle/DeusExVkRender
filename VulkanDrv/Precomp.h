@@ -23,6 +23,7 @@
 #include <memory>
 #include <map>
 #include <unordered_map>
+#include <optional>
 #pragma pack(pop)
 
 #define UTGLR_NO_APP_MALLOC

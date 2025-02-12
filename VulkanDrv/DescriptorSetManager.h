@@ -50,65 +50,20 @@ public:
 	DescriptorSetManager(UVulkanRenderDevice* renderer);
 	~DescriptorSetManager();
 
-	VulkanDescriptorSet* GetTextureSet(DWORD PolyFlags, CachedTexture* tex, CachedTexture* lightmap = nullptr, CachedTexture* macrotex = nullptr, CachedTexture* detailtex = nullptr, bool clamp = false);
-	void ClearCache();
-
-	int GetTextureArrayIndex(DWORD PolyFlags, CachedTexture* tex, bool clamp = false);
-	VulkanDescriptorSet* GetBindlessSet() { return Textures.BindlessSet.get(); }
-	VulkanDescriptorSet* GetPresentSet() { return Present.Set.get(); }
-	VulkanDescriptorSet* GetBloomPPImageSet() { return Bloom.PPImageSet.get(); }
-	VulkanDescriptorSet* GetBloomVTextureSet(int level) { return Bloom.VTextureSets[level].get(); }
-	VulkanDescriptorSet* GetBloomHTextureSet(int level) { return Bloom.HTextureSets[level].get(); }
-
-	void UpdateBindlessSet();
-	void UpdateFrameDescriptors();
-
 	static const int MaxBindlessTextures = 16536;
 
-	VulkanDescriptorSetLayout* GetTextureBindlessLayout() { return Textures.BindlessLayout.get(); }
-	VulkanDescriptorSetLayout* GetTextureLayout() { return Textures.Layout.get(); }
-	VulkanDescriptorSetLayout* GetPresentLayout() { return Present.Layout.get(); }
-	VulkanDescriptorSetLayout* GetBloomLayout() { return Bloom.Layout.get(); }
+	VulkanDescriptorSetLayout* GetNewLayout() { return Textures.NewLayout.get(); }
+	VulkanDescriptorSet* GetNewSet(bool oddEven) { return Textures.NewSet[oddEven].get(); }
 
 private:
 	void CreateBindlessTextureSet();
-	void CreateTextureLayout();
-	void CreatePresentLayout();
-	void CreatePresentSet();
-	void CreateBloomLayout();
-	void CreateBloomSets();
 
 	UVulkanRenderDevice* renderer = nullptr;
 
 	struct
 	{
-		std::unique_ptr<VulkanDescriptorSetLayout> BindlessLayout;
-		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
-
-		std::unique_ptr<VulkanDescriptorPool> BindlessPool;
-		std::unique_ptr<VulkanDescriptorSet> BindlessSet;
-		WriteDescriptors WriteBindless;
-		int NextBindlessIndex = 0;
-
-		std::vector<std::unique_ptr<VulkanDescriptorPool>> Pool;
-		int PoolSetsLeft = 0;
-
-		std::unordered_map<TexDescriptorKey, std::unique_ptr<VulkanDescriptorSet>> Sets;
+		std::unique_ptr<VulkanDescriptorPool> NewPool;
+		std::unique_ptr<VulkanDescriptorSetLayout> NewLayout;
+		std::unique_ptr<VulkanDescriptorSet> NewSet[2];
 	} Textures;
-
-	struct
-	{
-		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
-		std::unique_ptr<VulkanDescriptorPool> Pool;
-		std::unique_ptr<VulkanDescriptorSet> Set;
-	} Present;
-
-	struct
-	{
-		std::unique_ptr<VulkanDescriptorSetLayout> Layout;
-		std::unique_ptr<VulkanDescriptorPool> Pool;
-		std::unique_ptr<VulkanDescriptorSet> VTextureSets[NumBloomLevels];
-		std::unique_ptr<VulkanDescriptorSet> HTextureSets[NumBloomLevels];
-		std::unique_ptr<VulkanDescriptorSet> PPImageSet;
-	} Bloom;
 };

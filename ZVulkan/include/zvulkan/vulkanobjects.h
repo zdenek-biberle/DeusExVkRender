@@ -368,7 +368,7 @@ public:
 
 	void SetDebugName(const char *name);
 
-	void begin();
+	void begin(VkCommandBufferUsageFlags flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 	void end();
 
 	void bindPipeline(VkPipelineBindPoint pipelineBindPoint, VulkanPipeline *pipeline);
@@ -635,11 +635,11 @@ inline VulkanCommandBuffer::~VulkanCommandBuffer()
 	vkFreeCommandBuffers(pool->device->device, pool->pool, 1, &buffer);
 }
 
-inline void VulkanCommandBuffer::begin()
+inline void VulkanCommandBuffer::begin(VkCommandBufferUsageFlags flags)
 {
 	VkCommandBufferBeginInfo beginInfo = {};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	beginInfo.flags = flags;
 	beginInfo.pInheritanceInfo = nullptr;
 
 	VkResult result = vkBeginCommandBuffer(buffer, &beginInfo);

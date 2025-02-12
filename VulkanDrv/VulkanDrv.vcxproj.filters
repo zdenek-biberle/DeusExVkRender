@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClInclude Include="UVulkanRenderDevice.h" />
@@ -21,6 +21,8 @@
     <ClInclude Include="UTF16.h" />
     <ClInclude Include="UploadManager.h" />
     <ClInclude Include="TextureUploader.h" />
+    <ClInclude Include="UVkRender.h" />
+    <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VulkanDrv.cpp" />
@@ -41,8 +43,28 @@
     <ClCompile Include="UTF16.cpp" />
     <ClCompile Include="UploadManager.cpp" />
     <ClCompile Include="TextureUploader.cpp" />
+    <ClCompile Include="UVkRender.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\VulkanDrv.int" />
+    <None Include="glsl\scene.vert">
+      <Filter>glsl</Filter>
+    </None>
+    <None Include="glsl\scene.frag">
+      <Filter>glsl</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="NatvisFile.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="glsl">
+      <UniqueIdentifier>{7f1aef06-c056-490f-aa5c-ec05ed83bd3b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="glsl.rc">
+      <Filter>glsl</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>

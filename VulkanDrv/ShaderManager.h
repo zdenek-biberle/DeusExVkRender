@@ -24,18 +24,9 @@ struct ScenePushConstants
 	uint32_t padding1, padding2, padding3;
 };
 
-struct PresentPushConstants
+struct NewScenePushConstants
 {
-	float Contrast;
-	float Saturation;
-	float Brightness;
-	float Padding;
-	vec4 GammaCorrection;
-};
-
-struct BloomPushConstants
-{
-	float SampleWeights[8];
+	mat4 objectToProjection;
 };
 
 class ShaderManager
@@ -49,21 +40,13 @@ public:
 		std::unique_ptr<VulkanShader> VertexShader;
 		std::unique_ptr<VulkanShader> FragmentShader;
 		std::unique_ptr<VulkanShader> FragmentShaderAlphaTest;
-	} Scene, SceneBindless;
+	} SceneBindless;
 
-	struct
+	struct NewSceneShaders
 	{
 		std::unique_ptr<VulkanShader> VertexShader;
-		std::unique_ptr<VulkanShader> FragmentPresentShader[16];
-	} Postprocess;
-
-	struct
-	{
-		std::unique_ptr<VulkanShader> Extract;
-		std::unique_ptr<VulkanShader> Combine;
-		std::unique_ptr<VulkanShader> BlurVertical;
-		std::unique_ptr<VulkanShader> BlurHorizontal;
-	} Bloom;
+		std::unique_ptr<VulkanShader> FragmentShader;
+	} NewScene;
 
 	static std::string LoadShaderCode(const std::string& filename, const std::string& defines = {});
 

@@ -2,6 +2,20 @@
 #include "Precomp.h"
 #include "FileResource.h"
 
+std::string readShader(unsigned short shader) {
+	auto resInfo = FindResource(hInstance, MAKEINTRESOURCE(shader), MAKEINTRESOURCE(RT_RCDATA));
+	if (!resInfo) {
+		throw std::runtime_error("Failed to find resource");
+	}
+	auto resHandle = LoadResource(hInstance, resInfo);
+	if (!resHandle) {
+		throw std::runtime_error("Failed to load resource");
+	}
+	auto resSize = SizeofResource(hInstance, resInfo);
+	auto resData = LockResource(resHandle);
+	return std::string(static_cast<const char*>(resData), resSize);
+}
+
 // I probably should find a less brain dead way of doing this. :)
 
 std::string FileResource::readAllText(const std::string& filename)
@@ -60,7 +74,7 @@ std::string FileResource::readAllText(const std::string& filename)
 	{
 		return R"(
 			#if defined(BINDLESS_TEXTURES)
-			layout(binding = 0) uniform sampler2D textures[];
+			//layout(binding = 0) uniform sampler2D textures[];
 			#else
 			layout(binding = 0) uniform sampler2D tex;
 			layout(binding = 1) uniform sampler2D texLightmap;
@@ -80,7 +94,7 @@ std::string FileResource::readAllText(const std::string& filename)
 			#endif
 
 			layout(location = 0) out vec4 outColor;
-			layout(location = 1) out uint outHitIndex;
+			//layout(location = 1) out uint outHitIndex;
 
 			vec4 darkClamp(vec4 c)
 			{
@@ -90,10 +104,14 @@ std::string FileResource::readAllText(const std::string& filename)
 			}
 
 			#if defined(BINDLESS_TEXTURES)
-			vec4 textureTex(vec2 uv) { return texture(textures[textureBinds.x], uv); }
+			/*vec4 textureTex(vec2 uv) { return texture(textures[textureBinds.x], uv); }
 			vec4 textureMacro(vec2 uv) { return texture(textures[textureBinds.y], uv); }
 			vec4 textureDetail(vec2 uv) { return texture(textures[textureBinds.z], uv); }
-			vec4 textureLightmap(vec2 uv) { return texture(textures[textureBinds.w], uv); }
+			vec4 textureLightmap(vec2 uv) { return texture(textures[textureBinds.w], uv); }*/
+			vec4 textureTex(vec2 uv) { return vec4(1.0, 1.0, 1.0, 1.0); }
+			vec4 textureMacro(vec2 uv) { return vec4(1.0, 1.0, 1.0, 1.0); }
+			vec4 textureDetail(vec2 uv) { return vec4(1.0, 1.0, 1.0, 1.0); }
+			vec4 textureLightmap(vec2 uv) { return vec4(1.0, 1.0, 1.0, 1.0); }
 			#else
 			vec4 textureTex(vec2 uv) { return texture(tex, uv); }
 			vec4 textureMacro(vec2 uv) { return texture(texMacro, uv); }
@@ -115,7 +133,7 @@ std::string FileResource::readAllText(const std::string& filename)
 
 				if ((flags & 1) != 0) // Lightmap
 				{
-					outColor.rgb *= clamp(textureLightmap(texCoord2).rgb, 0.0, 1.0) * oneXBlending;
+					outColor.rgb *= clamp(textureLightmap(texCoord2).rgb, 0.0, 1.0) * oneXBlending * 1.8;
 				}
 
 				if ((flags & 4) != 0) // Detail texture
@@ -144,7 +162,12 @@ std::string FileResource::readAllText(const std::string& filename)
 				if ((flags & 1) == 0)
 					outColor = clamp(outColor, 0.0, 1.0);
 
-				outHitIndex = hitIndex;
+				// reinhard tone mapping
+				outColor.rgb = outColor.rgb / (outColor.rgb + 1.0);
+				// gamma correction 
+				outColor.rgb = pow(outColor.rgb, vec3(1.0 / 2.2));
+
+				//outHitIndex = hitIndex;
 			}
 		)";
 	}
@@ -279,7 +302,7 @@ std::string FileResource::readAllText(const std::string& filename)
 
 			void main()
 			{
-				vec3 color = gammaCorrect(colorCorrect(texture(texSampler, texCoord).rgb));
+				vec3 color = texture(texSampler, texCoord).rgb;
 			#if defined(HDR_MODE)
 				outColor = vec4(linearHdr(color), 1.0f);
 			#else

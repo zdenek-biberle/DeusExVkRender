@@ -47,7 +47,7 @@ void VulkanSwapChain::Create(int width, int height, int imageCount, bool vsync, 
 			auto image = std::make_unique<VulkanImage>(device, vkimage, nullptr, actualExtent.width, actualExtent.height, 1, 1);
 			auto view = ImageViewBuilder()
 				.Type(VK_IMAGE_VIEW_TYPE_2D)
-				.Image(image.get(), format.format)
+				.Image(image.get(), format.value().format)
 				.DebugName("SwapchainImageView")
 				.Create(device);
 			images.push_back(std::move(image));
@@ -60,8 +60,7 @@ void VulkanSwapChain::SelectFormat(const VulkanSurfaceCapabilities& caps, bool h
 {
 	if (caps.Formats.size() == 1 && caps.Formats.front().format == VK_FORMAT_UNDEFINED)
 	{
-		format.format = VK_FORMAT_B8G8R8A8_UNORM;
-		format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+		format = VkSurfaceFormatKHR{ VK_FORMAT_B8G8R8A8_UNORM,VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
 		return;
 	}
 
@@ -159,8 +158,8 @@ bool VulkanSwapChain::CreateSwapchain(int width, int height, int imageCount, boo
 
 	swapChainCreateInfo.surface = device->Surface->Surface;
 	swapChainCreateInfo.minImageCount = imageCount;
-	swapChainCreateInfo.imageFormat = format.format;
-	swapChainCreateInfo.imageColorSpace = format.colorSpace;
+	swapChainCreateInfo.imageFormat = format.value().format;
+	swapChainCreateInfo.imageColorSpace = format.value().colorSpace;
 	swapChainCreateInfo.imageExtent = actualExtent;
 	swapChainCreateInfo.imageArrayLayers = 1;
 	swapChainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -264,7 +263,7 @@ void VulkanSwapChain::QueuePresent(int imageIndex, VulkanSemaphore* semaphore)
 	{
 		return;
 	}
-	else if (result == VK_ERROR_OUT_OF_DATE_KHR  || result == VK_ERROR_SURFACE_LOST_KHR || result == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT)
+	else if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_ERROR_SURFACE_LOST_KHR || result == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT)
 	{
 		lost = true;
 	}
@@ -405,7 +404,7 @@ VulkanSurfaceCapabilities VulkanSwapChain::GetSurfaceCapabilities(bool exclusive
 		VkResult result = vkGetPhysicalDeviceSurfaceFormatsKHR(device->PhysicalDevice.Device, device->Surface->Surface, &surfaceFormatCount, nullptr);
 		if (result != VK_SUCCESS)
 			VulkanError("vkGetPhysicalDeviceSurfaceFormatsKHR failed");
-		
+
 		if (surfaceFormatCount > 0)
 		{
 			caps.Formats.resize(surfaceFormatCount);

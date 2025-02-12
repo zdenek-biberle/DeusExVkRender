@@ -3,6 +3,8 @@
 #include "vulkandevice.h"
 #include "vulkanobjects.h"
 
+#include <optional>
+
 class VulkanSemaphore;
 class VulkanFence;
 
@@ -30,7 +32,7 @@ public:
 
 	int Width() const { return actualExtent.width; }
 	int Height() const { return actualExtent.height; }
-	VkSurfaceFormatKHR Format() const { return format; }
+	VkSurfaceFormatKHR Format() const { return format.value(); }
 
 	int ImageCount() const { return (int)images.size(); }
 	VulkanImage* GetImage(int index) { return images[index].get(); }
@@ -51,7 +53,7 @@ private:
 
 	VkExtent2D actualExtent = {};
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-	VkSurfaceFormatKHR format = {};
+	std::optional<VkSurfaceFormatKHR> format = {};
 	VkPresentModeKHR presentMode;
 	std::vector<std::unique_ptr<VulkanImage>> images;
 	std::vector<std::unique_ptr<VulkanImageView>> views;

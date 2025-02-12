@@ -35,57 +35,8 @@ CommandBufferManager::~CommandBufferManager()
 	DeleteFrameObjects();
 }
 
-void CommandBufferManager::WaitForTransfer()
-{
-	renderer->Uploads->SubmitUploads();
-
-	if (TransferCommands)
-	{
-		TransferCommands->end();
-
-		QueueSubmit()
-			.AddCommandBuffer(TransferCommands.get())
-			.Execute(renderer->Device.get(), renderer->Device.get()->GraphicsQueue, RenderFinishedFence.get());
-
-		vkWaitForFences(renderer->Device.get()->device, 1, &RenderFinishedFence->fence, VK_TRUE, std::numeric_limits<uint64_t>::max());
-		vkResetFences(renderer->Device.get()->device, 1, &RenderFinishedFence->fence);
-
-		TransferCommands.reset();
-	}
-}
-
 void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int presentHeight, bool presentFullscreen)
 {
-	renderer->Uploads->SubmitUploads();
-
-	if (present)
-	{
-		if (SwapChain->Lost() || SwapChain->Width() != presentWidth || SwapChain->Height() != presentHeight || UsingVsync != renderer->UseVSync || UsingHdr != renderer->Hdr)
-		{
-			UsingVsync = renderer->UseVSync;
-			UsingHdr = renderer->Hdr;
-			renderer->Framebuffers->DestroySwapChainFramebuffers();
-			SwapChain->Create(presentWidth, presentHeight, renderer->UseVSync ? 2 : 3, renderer->UseVSync, renderer->Hdr, renderer->VkExclusiveFullscreen && presentFullscreen);
-			renderer->Framebuffers->CreateSwapChainFramebuffers();
-		}
-
-		PresentImageIndex = SwapChain->AcquireImage(ImageAvailableSemaphore.get());
-		if (PresentImageIndex != -1)
-		{
-			renderer->DrawPresentTexture(0, 0, presentWidth, presentHeight);
-		}
-	}
-
-	if (TransferCommands)
-	{
-		TransferCommands->end();
-
-		QueueSubmit()
-			.AddCommandBuffer(TransferCommands.get())
-			.AddSignal(TransferSemaphore.get())
-			.Execute(renderer->Device.get(), renderer->Device.get()->GraphicsQueue);
-	}
-
 	if (DrawCommands)
 		DrawCommands->end();
 
@@ -94,10 +45,10 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
 	{
 		submit.AddCommandBuffer(DrawCommands.get());
 	}
-	if (TransferCommands)
-	{
-		submit.AddWait(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, TransferSemaphore.get());
-	}
+	//if (TransferCommands)
+	//{
+	//	submit.AddWait(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, TransferSemaphore.get());
+	//}
 	if (present && PresentImageIndex != -1)
 	{
 		submit.AddWait(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, ImageAvailableSemaphore.get());
@@ -114,18 +65,8 @@ void CommandBufferManager::SubmitCommands(bool present, int presentWidth, int pr
 	vkResetFences(renderer->Device.get()->device, 1, &RenderFinishedFence->fence);
 
 	DrawCommands.reset();
-	TransferCommands.reset();
+	//TransferCommands.reset();
 	DeleteFrameObjects();
-}
-
-VulkanCommandBuffer* CommandBufferManager::GetTransferCommands()
-{
-	if (!TransferCommands)
-	{
-		TransferCommands = CommandPool->createBuffer();
-		TransferCommands->begin();
-	}
-	return TransferCommands.get();
 }
 
 VulkanCommandBuffer* CommandBufferManager::GetDrawCommands()
@@ -141,4 +82,28 @@ VulkanCommandBuffer* CommandBufferManager::GetDrawCommands()
 void CommandBufferManager::DeleteFrameObjects()
 {
 	FrameDeleteList = std::make_unique<DeleteList>();
+}
+
+void CommandBufferManager::AcquirePresentImage(int presentWidth, int presentHeight, bool presentFullscreen)
+{
+	if (SwapChain->Lost() || SwapChain->Width() != presentWidth || SwapChain->Height() != presentHeight || UsingVsync != renderer->UseVSync || UsingHdr != renderer->Hdr)
+	{
+		try {
+			UsingVsync = renderer->UseVSync;
+			UsingHdr = renderer->Hdr;
+			renderer->Framebuffers->DestroySwapChainFramebuffers();
+			SwapChain->Create(presentWidth, presentHeight, renderer->UseVSync ? 2 : 3, renderer->UseVSync, renderer->Hdr, renderer->VkExclusiveFullscreen && presentFullscreen);
+			renderer->Framebuffers->CreateSwapChainFramebuffers();
+		}
+		catch (...) {
+			debugf(L"Oopsie recreating swapchain");
+		}
+	}
+
+	PresentImageIndex = SwapChain->AcquireImage(ImageAvailableSemaphore.get());
+}
+
+std::unique_ptr<VulkanCommandBuffer> CommandBufferManager::CreateCommandBuffer()
+{
+	return CommandPool->createBuffer();
 }

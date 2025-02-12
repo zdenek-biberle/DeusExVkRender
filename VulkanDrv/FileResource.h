@@ -1,6 +1,9 @@
 #pragma once
 
 #include <string>
+#include "resource.h"
+
+std::string readShader(unsigned short resource);
 
 class FileResource
 {

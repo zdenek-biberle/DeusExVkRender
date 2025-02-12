@@ -9,22 +9,10 @@ class FramebufferManager
 public:
 	FramebufferManager(UVulkanRenderDevice* renderer);
 
-	void CreateSceneFramebuffer();
-	void DestroySceneFramebuffer();
-
 	void CreateSwapChainFramebuffers();
 	void DestroySwapChainFramebuffers();
 
 	VulkanFramebuffer* GetSwapChainFramebuffer();
-
-	std::unique_ptr<VulkanFramebuffer> SceneFramebuffer;
-	std::unique_ptr<VulkanFramebuffer> BloomPPImageFB;
-
-	struct
-	{
-		std::unique_ptr<VulkanFramebuffer> VTextureFB;
-		std::unique_ptr<VulkanFramebuffer> HTextureFB;
-	} BloomBlurLevels[NumBloomLevels];
 
 private:
 	UVulkanRenderDevice* renderer = nullptr;

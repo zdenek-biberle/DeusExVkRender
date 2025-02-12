@@ -18,13 +18,7 @@ public:
 	void UploadTexture(CachedTexture* tex, const FTextureInfo& Info, bool masked);
 	void UploadTextureRect(CachedTexture* tex, const FTextureInfo& Info, int x, int y, int w, int h);
 
-	void SubmitUploads();
-
 private:
-	void UploadData(CachedTexture* tex, const FTextureInfo& Info, bool masked, TextureUploader* uploader);
-	void UploadWhite(CachedTexture* tex);
-	void WaitIfUploadBufferIsFull(int bytes);
-
 	UVulkanRenderDevice* renderer = nullptr;
 
 	int UploadBufferPos = 0;

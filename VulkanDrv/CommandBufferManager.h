@@ -8,11 +8,14 @@ public:
 	CommandBufferManager(UVulkanRenderDevice* renderer);
 	~CommandBufferManager();
 
-	void WaitForTransfer();
+	//void WaitForTransfer();
 	void SubmitCommands(bool present, int presentWidth, int presentHeight, bool presentFullscreen);
-	VulkanCommandBuffer* GetTransferCommands();
+	//VulkanCommandBuffer* GetTransferCommands();
 	VulkanCommandBuffer* GetDrawCommands();
+	void CreateSwapChain(int presentWidth, int presentHeight, bool presentFullscreen);
+	void AcquirePresentImage(int presentWidth, int presentHeight, bool presentFullscreen);
 	void DeleteFrameObjects();
+	std::unique_ptr<VulkanCommandBuffer> CreateCommandBuffer();
 
 	struct DeleteList
 	{
@@ -37,5 +40,5 @@ private:
 	std::unique_ptr<VulkanFence> RenderFinishedFence;
 	std::unique_ptr<VulkanCommandPool> CommandPool;
 	std::unique_ptr<VulkanCommandBuffer> DrawCommands;
-	std::unique_ptr<VulkanCommandBuffer> TransferCommands;
+	//std::unique_ptr<VulkanCommandBuffer> TransferCommands;
 };

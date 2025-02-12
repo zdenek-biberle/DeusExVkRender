@@ -540,6 +540,8 @@ public:
 	WriteDescriptors& AddBuffer(VulkanDescriptorSet *descriptorSet, int binding, VkDescriptorType type, VulkanBuffer *buffer);
 	WriteDescriptors& AddBuffer(VulkanDescriptorSet *descriptorSet, int binding, VkDescriptorType type, VulkanBuffer *buffer, size_t offset, size_t range);
 	WriteDescriptors& AddStorageImage(VulkanDescriptorSet *descriptorSet, int binding, VulkanImageView *view, VkImageLayout imageLayout);
+	WriteDescriptors& AddImageArray(VulkanDescriptorSet* descriptorSet, int binding, const std::vector<VulkanImageView*> &views, VkImageLayout imageLayout);
+	WriteDescriptors& AddSampler(VulkanDescriptorSet* descriptorSet, int binding, VulkanSampler* sampler);
 	WriteDescriptors& AddCombinedImageSampler(VulkanDescriptorSet *descriptorSet, int binding, VulkanImageView *view, VulkanSampler *sampler, VkImageLayout imageLayout);
 	WriteDescriptors& AddCombinedImageSampler(VulkanDescriptorSet* descriptorSet, int binding, int arrayIndex, VulkanImageView* view, VulkanSampler* sampler, VkImageLayout imageLayout);
 	WriteDescriptors& AddAccelerationStructure(VulkanDescriptorSet* descriptorSet, int binding, VulkanAccelerationStructure* accelStruct);
@@ -552,6 +554,7 @@ private:
 		VkDescriptorBufferInfo bufferInfo;
 		VkBufferView bufferView;
 		VkWriteDescriptorSetAccelerationStructureKHR accelStruct;
+		std::vector<VkDescriptorImageInfo> imageInfos;
 	};
 
 	std::vector<VkWriteDescriptorSet> writes;

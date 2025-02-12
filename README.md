@@ -1,92 +1,24 @@
-# Unreal Tournament VulkanDrv
-This project implements a vulkan render device for Unreal Tournament (UT99).
+# DeusExVkRender
 
-## Compiling the source
+This is a very experimental renderer for Deus Ex. The idea is to build a renderer that works in a way that's more modern than Deus Ex's default "immediate mode" rendering subsystem.
 
-The project files were made for Visual Studio 2022. Open VulkanDrv.sln, select the release configuration and press build.
+The code is based on [UT99VulkanDrv](https://github.com/dpjudas/UT99VulkanDrv), though I've ripped out loads of parts that I currently do not need.
 
-Note: This project can no longer be built without the 469 SDK. It also requires 469c or newer to run.
+## Core idea
 
-## Using VulkanDrv as the render device
+Deus Ex (and UE1) ships with a class called `URender` in `Render.dll`. This class is responsible for the absolute majority of work regarding rendering. It traverses the scene graph, traverses the BSP, handles lighting, culls geometry and transforms vertices. The only thing that it doesn't do is the actual drawing - that's delegated to a specific render device (i.e. something that extends `URenderDevice`), which is what most third party renderers for UE1 implement.
 
-Copy the VulkanDrv.dll and VulkanDrv.int files to the Unreal Tournament system folder.
+So what if we replaced `URender` with our own class? This would give us much more control over how the game is rendered.
 
-In the [Engine.Engine] section of UnrealTournament.ini, change GameRenderDevice to VulkanDrv.VulkanRenderDevice
+Thankfully, it's perfectly possible to replace `URender` with something else. Just point `Engine.Engine.Render` in the config file to an appropriate package and class.
 
-Add the following section to the file:
+Now it's just about implementing our `URender` replacement. That's going to be a bit of work.
 
-	[VulkanDrv.VulkanRenderDevice]
-	LODBias=-0.500000
-	GammaOffsetBlue=0.000000
-	GammaOffsetGreen=0.000000
-	GammaOffsetRed=0.000000
-	GammaOffset=0.000000
-	GammaMode=D3D9
-	UseVSync=True
-	LightMode=Normal
-	OccludeLines=True
-	Hdr=False
-	AntialiasMode=MSAA_4x
-	Saturation=255
-	Contrast=128
-	LinearBrightness=128
-	VkDebug=False
-	VkDeviceIndex=0
-	VkExclusiveFullscreen=False
+## Status
 
-## Description of settings
+I'm mainly using this project as an opportunity to learn some Vulkan, so don't expect much. Currently, the project is extremely early in development, although it does actually render things:
 
-- LightMode:
-  - Normal: The default rendering of the Direct3D render devices that shipped with the game
-  - OneXBlending: Halve the brightness of the light maps (all map surfaces are half as bright). This effectively makes the actors brighter relative to actors
-  - BrighterActors: This doubles the brightness of the actors instead of making the light maps dimmer
-- GammaOffset, GammaOffsetRed, GammaOffsetGreen, GammaOfsetBlue: Add additional gamma to all pixels. GammaOffset for all color channels, the others for specific ones
-- GammaMode:
-  - D3D9: Use the gamma calculations from the other Direct3D render devices
-  - XOpenGL: Use the gamma calculations from the XOpenGL render device
-- Hdr: Overbright pixels will use the high dynamic range of the monitor. Note: this will only work if HDR is enabled in the Windows display settings and if you have a HDR capable monitor
-- AntialiasMode:
-  - Off: No anti alias applied
-  - MSAA_2x: 2x multisampling
-  - MSAA_4x: 4x multisampling
-- Saturation: Saturation color control. 255 is the default. 128 is black and white. Zero inversely saturates the colors.
-- Contrast: Contrast color control. 128 is the default.
-- LinearBrightness: True brightness control (UT's brightness control is actually gamma control). 128 is the default.
-- OccludeLines: If true, lines are occluded by geometry in the Unreal editor.
-- LODBias: Adjusts the level-of-detail bias for textures. A number greater than zero will bias it towards using lower detail mipmaps. A negative number will bias it towards using higher level mipmaps
-- Bloom: Adds bloom to overbright pixels
-- BloomAmount: Controls how strong the bloom blur should be. 128 is the default.
+![Liberty Island](doc/screen01.jpeg)
+![NYC](doc/screen02.jpeg)
 
-## Description of VulkanDrv specific settings
-
-- VkDebug enables the vulkan debug layer and will cause the render device to output extra information into the UnrealTournament.log file. 'VkMemStats' can also be typed into the console.
-- VkExclusiveFullscreen enables vulkan's exclusive full screen feature. It is off by default as some users have reported problems with it.
-- VkDeviceIndex selects which vulkan device in the system the render device should use. Type 'GetVkDevices' in the system console to get the list of available devices.
-
-## Using D3D11Drv as the render device
-
-This project now also contains a Direct3D 11 render device. To use it, copy the D3D11Drv.dll and D3D11Drv.int files to the Unreal Tournament system folder.
-
-In the [Engine.Engine] section of UnrealTournament.ini, change GameRenderDevice to D3D11Drv.D3D11RenderDevice
-
-Add the following section to the file:
-
-	[D3D11Drv.D3D11RenderDevice]
-	LODBias=-0.500000
-	GammaOffsetBlue=0.000000
-	GammaOffsetGreen=0.000000
-	GammaOffsetRed=0.000000
-	GammaOffset=0.000000
-	GammaMode=D3D9
-	UseVSync=True
-	LightMode=Normal
-	OccludeLines=True
-	Hdr=False
-	AntialiasMode=MSAA_4x
-	Saturation=255
-	Contrast=128
-	LinearBrightness=128
-
-## License
-
-Please see LICENSE.md for the details.
+There is currently absolutely no culling, no lighting (not even lightmaps), transparency's broken, some animations are broken, some mesh transforms are broken, the UI has no textures (and is in fact still rendered through the old `UT99VulkanDrv` code path), some meshes that should be rendered aren't rendered (and vice versa) and many other issues. But hey, it's a start!
