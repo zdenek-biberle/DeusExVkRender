@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Precomp.h"
+
 class UVkRender : public URenderBase {
 	DECLARE_CLASS(UVkRender, URenderBase, CLASS_Config)
 

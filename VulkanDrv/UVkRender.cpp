@@ -1,6 +1,5 @@
 #include "Precomp.h"
 #include "UVkRender.h"
-#include "DeusEx/Render/Src/RenderPrivate.h"
 #include "UVulkanRenderDevice.h"
 
 IMPLEMENT_CLASS(UVkRender);

@@ -34,8 +34,10 @@ struct Surf
 struct alignas(16) Object {
 	mat4 xform;
 	UINT textures[8];
-	UINT vertexOffset;
-	UINT pad[3];
+	UINT vertexOffset1;
+	UINT vertexOffset2;
+	float vertexLerp;
+	UINT pad;
 	VkDrawIndirectCommand command;
 };
 

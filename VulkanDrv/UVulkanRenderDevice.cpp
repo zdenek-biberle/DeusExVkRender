@@ -1585,19 +1585,29 @@ public:
 	void CountBytes(FArchive& Ar);
 };
 
-static int getVertexOffsetFromActor(UMesh* mesh, AActor* actor) {
+static void getVertexOffsetFromActor(const UMesh* mesh, const AActor* actor, Object& object) {
 	if (actor->Owner && actor->bAnimByOwner) {
 		actor = actor->Owner;
 	}
 
 	auto animSeq = mesh->GetAnimSeq(actor->AnimSequence);
-	if (!animSeq) return 0;
+	if (!animSeq) {
+		object.vertexOffset1 = 0;
+		object.vertexOffset2 = 0;
+		object.vertexLerp = 0;
+		return;
+	}
 
 	auto frameFloatIdx = actor->AnimFrame * animSeq->NumFrames;
 	if (frameFloatIdx < 0) frameFloatIdx = 0;
-	auto frameIdx = static_cast<int>(std::round(frameFloatIdx));
+	auto frameIdx = static_cast<int>(frameFloatIdx);
 	frameIdx = frameIdx % animSeq->NumFrames;
-	return (animSeq->StartFrame + frameIdx) * mesh->FrameVerts;
+	auto nextFrameIdx = (frameIdx + 1) % animSeq->NumFrames;
+	auto frameLerp = frameFloatIdx - frameIdx;
+
+	object.vertexOffset1 = (animSeq->StartFrame + frameIdx) * mesh->FrameVerts;
+	object.vertexOffset2 = (animSeq->StartFrame + nextFrameIdx) * mesh->FrameVerts;
+	object.vertexLerp = frameLerp;
 }
 
 void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
@@ -1885,7 +1895,9 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 		objectBuffer[actorIdx++] = {
 			mat4::identity(),
 			{}, // level has no texture remapping
-			0, // level draws with no vertex offset
+			0,  // level draws with no vertex offset
+			0,  // same here
+			0,  // same here
 			{}, // pad
 			VkDrawIndirectCommand{
 				levelModelBase.wedgeIndexCount,
@@ -1930,6 +1942,8 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 				translation * rotation * prePivot,
 				{},
 				0,
+				0,
+				0,
 				{}, // pad
 				VkDrawIndirectCommand{
 						modelBase->wedgeIndexCount,
@@ -1958,7 +1972,7 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 					}
 				}
 
-				object.vertexOffset = getVertexOffsetFromActor(mesh, actor);
+				getVertexOffsetFromActor(mesh, actor, object);
 			}
 			
 			objectBuffer[actorIdx++] = object;
