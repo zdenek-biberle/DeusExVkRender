@@ -8,6 +8,7 @@ IMPLEMENT_CLASS(UVulkanRenderDevice);
 
 UVulkanRenderDevice::UVulkanRenderDevice()
 {
+	debugf(L"UVulkanRenderDevice::UVulkanRenderDevice, lastScene has value: %d", lastScene.has_value());
 }
 
 void UVulkanRenderDevice::StaticConstructor()
@@ -1176,7 +1177,7 @@ struct StagedTextureUpload {
 	std::unique_ptr<VulkanImage> deviceImage;
 	std::unique_ptr<VulkanImageView> imageView;
 	int textureIndex;
-	int usize, vsize;
+	UINT usize, vsize;
 
 	static StagedTextureUpload Create(VulkanDevice* device, UTexture* texture, int textureIndex) {
 		// TODO: MipMaps. We may want to use native mip maps, but those
@@ -1212,6 +1213,62 @@ struct StagedTextureUpload {
 		auto& mip = texture->Mips(0);
 		mip.DataArray.Load();
 
+		return Create(device, mip.USize, mip.VSize, textureIndex, [&](BYTE* stagingBufferData) {
+			auto mipData = static_cast<BYTE*>(mip.DataArray.GetData());
+			if (!mipData) {
+				debugf(TEXT("Vulkan: StagedTextureUpload: Texture %s@%p has no data"), texture->GetName(), texture);
+				throw std::runtime_error("Texture has no data");
+			}
+			bool hadTransparentPixels = false;
+			for (int v = 0; v < mip.VSize; v++) {
+				for (int u = 0; u < mip.USize; u++) {
+					auto& palette = texture->Palette->Colors;
+					auto color = palette(mipData[v * mip.USize + u]);
+					*(stagingBufferData++) = color.R;
+					*(stagingBufferData++) = color.G;
+					*(stagingBufferData++) = color.B;
+					if (masked)
+						*(stagingBufferData++) = (color.R == 255 && color.B == 255) ? 0 : 255;
+					else
+						*(stagingBufferData++) = color.A;
+					if (color.A != 255)
+						hadTransparentPixels = true;
+				}
+			}
+
+			//mip.DataArray.Unload();
+
+			if (hadTransparentPixels) {
+				debugf(TEXT("Vulkan: StagedTextureUpload: Texture %s@%p has transparent pixels, flags: %x"), texture->GetName(), texture, texture->PolyFlags);
+			}
+			});
+	}
+
+	//static StagedTextureUpload Create(VulkanDevice* device, FLightMapIndex& lightMap, TArray<BYTE>& lightBits, int textureIndex) {
+	//	int usize = lightMap.UClamp;
+	//	int vsize = lightMap.VClamp;
+	//	BYTE* lightData = static_cast<BYTE*>(lightBits.GetData()) + lightMap.DataOffset;
+	//	if (usize * vsize * 2 + lightMap.DataOffset > lightBits.Num()) {
+	//		debugf(TEXT("Vulkan: StagedTextureUpload: Lightmap %dx%d is out of bounds"), usize, vsize);
+	//		throw std::runtime_error("Lightmap is out of bounds");
+	//	}
+	//	debugf(L"Uploading lightmap %dx%d", usize, vsize);
+	//	return Create(device, usize, vsize, textureIndex, [&](BYTE* stagingBufferData) {
+	//		for (int v = 0; v < vsize; v++) {
+	//			for (int u = 0; u < usize; u++) {
+	//				/*BYTE a = lightData[v * usize + u];
+	//				BYTE b = lightData[v * usize + u + 1];*/
+	//				*(stagingBufferData++) = u * 8;
+	//				*(stagingBufferData++) = v * 8;
+	//				*(stagingBufferData++) = 0;
+	//				*(stagingBufferData++) = 1;
+	//			}
+	//		}
+	//		});
+	//}
+
+	template <typename Builder>
+	static StagedTextureUpload Create(VulkanDevice* device, UINT usize, UINT vsize, int textureIndex, Builder&& builder) {
 		auto stagingBuffer = BufferBuilder()
 			.Usage(
 				VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -1220,47 +1277,22 @@ struct StagedTextureUpload {
 			/*.MemoryType(
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)*/
-			.Size(mip.USize * mip.VSize * 4)
+			.Size(usize * vsize * 4)
 			.Create(device);
 
 		auto deviceImage = ImageBuilder()
 			.Usage(
 				VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE)
-			.Size(mip.USize, mip.VSize)
+			.Size(usize, vsize)
 			.Format(VK_FORMAT_R8G8B8A8_SRGB)
 			.Create(device);
 
 		// TODO: We should officially lock the texture here, but right now we probably
 		//       don't care.
 		auto stagingBufferData = static_cast<BYTE*>(stagingBuffer->Map(0, stagingBuffer->size));
-		auto mipData = static_cast<BYTE*>(mip.DataArray.GetData());
-		if (!mipData) {
-			debugf(TEXT("Vulkan: StagedTextureUpload: Texture %s@%p has no data"), texture->GetName(), texture);
-			throw std::runtime_error("Texture has no data");
-		}
-		bool hadTransparentPixels = false;
-		for (int v = 0; v < mip.VSize; v++) {
-			for (int u = 0; u < mip.USize; u++) {
-				auto& palette = texture->Palette->Colors;
-				auto color = palette(mipData[v * mip.USize + u]);
-				*(stagingBufferData++) = color.R;
-				*(stagingBufferData++) = color.G;
-				*(stagingBufferData++) = color.B;
-				if (masked)
-					*(stagingBufferData++) = (color.R == 255 && color.B == 255) ? 0 : 255;
-				else
-					*(stagingBufferData++) = color.A;
-				if (color.A != 255)
-					hadTransparentPixels = true;
-			}
-		}
+		builder(stagingBufferData);
 		stagingBuffer->Unmap();
-		//mip.DataArray.Unload();
-
-		if (hadTransparentPixels) {
-			debugf(TEXT("Vulkan: StagedTextureUpload: Texture %s@%p has transparent pixels, flags: %x"), texture->GetName(), texture, texture->PolyFlags);
-		}
 
 		auto imageView = ImageViewBuilder()
 			.Image(deviceImage.get(), VK_FORMAT_R8G8B8A8_SRGB)
@@ -1272,8 +1304,8 @@ struct StagedTextureUpload {
 			std::move(deviceImage),
 			std::move(imageView),
 			textureIndex,
-			mip.USize,
-			mip.VSize
+			usize,
+			vsize
 		};
 	}
 
@@ -1309,6 +1341,15 @@ struct StagedTextureUpload {
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT
 		);
+	}
+
+	UploadedTexture asUploaded() {
+		stagingBuffer.reset();
+		return {
+			std::move(deviceImage),
+			std::move(imageView),
+			textureIndex
+		};
 	}
 };
 
@@ -1352,18 +1393,25 @@ static void collectTexturesFromMesh(std::set<UTexture*>& set, const UMesh* mesh)
 
 struct ModelPusher {
 	UTexture* defaultTexture;
-	const std::map<UTexture*, StagedTextureUpload> & textureUploads;
+	const std::map<UTexture*, StagedTextureUpload>& textureUploads;
+	//const std::map<UModel*, UINT>& lightMapTextureBaseIndices;
 
 	std::vector<Vertex> verts;
 	std::vector<Wedge> wedges;
 	std::vector<Surf> surfs;
 	std::vector<UINT> surfIndices;
 	std::vector<UINT> wedgeIndices;
+	//std::vector<LightMapIndex> lightMapIndices;
+	std::vector<Light> lights;
 	std::map<UModel*, ModelBase> modelBases;
 	std::map<UMesh*, ModelBase> meshBases;
 
-	ModelPusher(UTexture* defaultTexture, const std::map<UTexture*, StagedTextureUpload>& textureUploads)
-		: defaultTexture(defaultTexture), textureUploads(textureUploads) {
+
+	ModelPusher(
+		UTexture* defaultTexture,
+		const std::map<UTexture*, StagedTextureUpload>& textureUploads/*,
+		const std::map<UModel*, UINT>& lightMapTextureBaseIndices*/)
+		: defaultTexture(defaultTexture), textureUploads(textureUploads)/*, lightMapTextureBaseIndices(lightMapTextureBaseIndices)*/ {
 	}
 
 	void pushModel(UModel* model, ULevel* level) {
@@ -1371,15 +1419,49 @@ struct ModelPusher {
 		const auto wedgeBase = wedges.size();
 		const auto vertBase = verts.size();
 		const auto wedgeIndexBase = wedgeIndices.size();
+		//const auto lightMapIndexBase = lightMapIndices.size();
+		const auto lightBase = lights.size();
 
-		FName lol{ L"un_CargoBoxMed", FNAME_Find };
+		// push each light map index as a light map index
+		/*const auto lightMapTextureBaseIndex = lightMapTextureBaseIndices.at(model);
+		for (UINT i = 0; i < model->LightMap.Num(); i++) {
+			auto &lightMap = model->LightMap(i);
+			lightMapIndices.push_back({
+				lightMap.Pan,
+				lightMapTextureBaseIndex + i,
+				lightMap.UScale,
+				lightMap.VScale
+			});
+		}*/
+
+		// push each light actor as a light
+		for (int i = 0; i < model->Lights.Num(); i++) {
+			auto light = model->Lights(i);
+			if (light && light->LightType != LT_None) {
+				FVector color{ FGetHSV(light->LightHue, light->LightSaturation, light->LightBrightness) };
+				lights.push_back({
+					light->Location,
+					1,
+					color * light->WorldLightRadius(),
+					0,
+					});
+			}
+			else {
+				lights.push_back({
+					FVector(0, 0, 0),
+					0,
+					FVector(0, 0, 0),
+					0,
+					});
+			}
+		}
 
 		// push each point as a vert
 		for (int i = 0; i < model->Points.Num(); i++) {
 			auto point = model->Points(i);
 			verts.push_back({
 				point
-			});
+				});
 		}
 
 		// push all the surfs
@@ -1394,11 +1476,14 @@ struct ModelPusher {
 				debugf(TEXT("Vulkan: Texture %s@%p not found in texture uploads, we screwed up"), texture->GetFullName(), texture);
 				throw std::runtime_error("Texture not found in texture uploads, we screwed up");
 			}
+			auto iLightActors = surf.iLightMap == INDEX_NONE ? ~0u : model->LightMap(surf.iLightMap).iLightActors;
+			auto lightsIndex = iLightActors == INDEX_NONE ? ~0u : iLightActors + lightBase;
 
 			surfs.push_back(Surf{
 				normal,
-				foundTexture->second.textureIndex
-			});
+				foundTexture->second.textureIndex,
+				lightsIndex,
+				});
 		}
 
 		// now construct wedges from the vertices of each node
@@ -1411,9 +1496,6 @@ struct ModelPusher {
 			//if (level->BrushTracker->SurfIsDynamic(node.iSurf)) continue;
 			auto base = model->Points(surf.pBase);
 			auto texture = surf.Texture ? surf.Texture : defaultTexture;
-			if (texture->GetFName() == lol) {
-				debugf(L"Found it");
-			}
 			auto texU = model->Vectors(surf.vTextureU) / texture->USize;
 			auto texV = model->Vectors(surf.vTextureV) / texture->VSize;
 			auto texBaseU = (base | texU) - surf.PanU / static_cast<float>(texture->USize);
@@ -1424,11 +1506,11 @@ struct ModelPusher {
 			for (int j = 0; j < node.NumVertices; j++) {
 				auto point = model->Points(model->Verts(node.iVertPool + j).pVertex);
 
-				wedges.push_back(Wedge {
+				wedges.push_back(Wedge{
 					(point | texU) - texBaseU,
 					(point | texV) - texBaseV,
 					vertBase + model->Verts(node.iVertPool + j).pVertex,
-				});
+					});
 			}
 
 			// push the triangle indices
@@ -1459,7 +1541,7 @@ struct ModelPusher {
 		if (isDxChar) {
 			debugf(L"Vulkan: %s@%p: Is a dx char", fullName, mesh);
 		}
-		
+
 		FCoords xform(FVector(0, 0, 0));
 		//xform *= lodMesh->RotOrigin;
 		xform *= FScale(mesh->Scale, 0.f, SHEER_None);
@@ -1479,7 +1561,7 @@ struct ModelPusher {
 				auto point = lodMesh->Verts(i).Vector();
 				verts.push_back({
 					point.TransformPointBy(xform)
-				});
+					});
 			}
 
 			// push all the wedges as wedge
@@ -1489,7 +1571,7 @@ struct ModelPusher {
 					wedge.TexUV.U / 255.0f, // hopium // seems to work, can we confirm that?
 					wedge.TexUV.V / 255.0f,
 					vertBase + wedge.iVertex,
-				});
+					});
 			}
 
 			// push all the faces as surfs & triangles
@@ -1506,8 +1588,9 @@ struct ModelPusher {
 				surfs.push_back({
 					{ 1, 0, 0 },
 					//(static_cast<UINT>(fcolor.R) << 16) | (fcolor.G << 8) | fcolor.B,
-					resolveTextureIndexForMesh(lodMesh, material.TextureIndex)
-				});
+					resolveTextureIndexForMesh(lodMesh, material.TextureIndex),
+					~0u,
+					});
 
 				// push each face as a triangle
 				surfIndices.push_back(surfIdx);
@@ -1525,7 +1608,7 @@ struct ModelPusher {
 				auto point = mesh->Verts(i).Vector();
 				verts.push_back({
 					point.TransformPointBy(xform)
-				});
+					});
 			}
 
 			// for each tri, push three wedges, a surf and appropriate indices
@@ -1535,8 +1618,9 @@ struct ModelPusher {
 				surfIndices.push_back(surfs.size());
 				surfs.push_back({
 					{ 1, 0, 0 },
-					resolveTextureIndexForMesh(mesh, tri.TextureIndex)
-				});
+					resolveTextureIndexForMesh(mesh, tri.TextureIndex),
+					~0u,
+					});
 
 				for (int j = 0; j < 3; j++) {
 					wedgeIndices.push_back(wedges.size());
@@ -1544,7 +1628,7 @@ struct ModelPusher {
 						tri.Tex[j].U / 255.0f,
 						tri.Tex[j].V / 255.0f,
 						vertBase + tri.iVertex[j]
-					});
+						});
 				}
 			}
 		}
@@ -1631,7 +1715,7 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 		// Clean up moving brushes.
 		// Actors with a brush-based model are actually inserted into
 		// the level's BSP tree. That's annoying, as we want to handle
-	    // the level geometry as being entirely static and just move
+		// the level geometry as being entirely static and just move
 		// the objects within it.
 		// To achieve that goal, we must not insert geometry from these
 		// brush-based actors into our level model. We could do that by
@@ -1696,14 +1780,28 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 		debugf(L"Texture collection found extra %d textures", textures.size() - numTexturesBeforeCollection);
 
 		// prepare texture uploads
+		int textureUploadIndex = 0;
 		std::map<UTexture*, StagedTextureUpload> textureUploads;
 		for (auto texture : textures)
 		{
 			debugf(TEXT("Vulkan: Preparing texture %s@%p for upload"), texture->GetFullName(), texture);
-			textureUploads[texture] = StagedTextureUpload::Create(Device.get(), texture, textureUploads.size());;
+			textureUploads[texture] = StagedTextureUpload::Create(Device.get(), texture, textureUploadIndex++);
 		}
 
-		ModelPusher modelPusher(defaultTexture, textureUploads);
+		// prepare lightmap uploads
+		// for each model, contains the base index of all it lightmap textures
+		//std::map<UModel*, UINT> lightMapIndices;
+		//std::vector<StagedTextureUpload> lightMapUploads;
+		//for (auto model : models) {
+		//	lightMapIndices[model] = textureUploadIndex;
+		//	for (UINT i = 0; i < model->LightMap.Num(); i++) {
+		//		debugf(L"Vulkan: Preparing lightmap %d (out of %d) of %s@%p for upload", i, model->LightMap.Num(), model->GetFullName(), model);
+		//		auto lightMap = model->LightMap(i);
+		//		lightMapUploads.push_back(StagedTextureUpload::Create(Device.get(), lightMap, model->LightBits, textureUploadIndex++));
+		//	}
+		//}
+
+		ModelPusher modelPusher(defaultTexture, textureUploads/*, lightMapIndices*/);
 
 		// count all surfs & verts
 		for (auto model : models) {
@@ -1725,7 +1823,7 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 			modelPusher.surfs.size(), modelPusher.wedges.size(), modelPusher.verts.size(), modelPusher.surfIndices.size(), modelPusher.wedgeIndices.size());
 
 		// check if we got the indices right
-		for (auto wedge : modelPusher.wedges) {
+		for (auto& wedge : modelPusher.wedges) {
 			if (wedge.vertIndex > modelPusher.verts.size()) {
 				debugf(L"Vulkan: We screwed up, we have %d verts, but got a wedge with vert index %d", modelPusher.verts.size(), wedge.vertIndex);
 				throw std::runtime_error("We screwed up vert indices in wedges");
@@ -1757,9 +1855,12 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 		surfIdxUpload.fillFrom(std::move(modelPusher.surfIndices));
 		auto wedgeIdxUpload = StagedUpload<UINT>::create(Device.get(), modelPusher.wedgeIndices.size(), "WedgeIndexBuffer");
 		wedgeIdxUpload.fillFrom(std::move(modelPusher.wedgeIndices));
+		//auto lightMapIndexUpload = StagedUpload<LightMapIndex>::create(Device.get(), modelPusher.lightMapIndices.size(), "LightMapIndexBuffer");
+		//lightMapIndexUpload.fillFrom(std::move(modelPusher.lightMapIndices));
+		auto lightsUpload = StagedUpload<Light>::create(Device.get(), modelPusher.lights.size(), "LightBuffer");
+		lightsUpload.fillFrom(std::move(modelPusher.lights));
 
-
-		debugf(L"Vulkan: Finished filling surf, wedge, vert, surf index and wedge index buffers");
+		debugf(L"Vulkan: Finished filling surf, wedge, vert, surf index, wedge index and light map index buffers");
 
 
 		// upload all the data
@@ -1771,6 +1872,8 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 			auto barrier = PipelineBarrier();
 			for (auto& [texture, upload] : textureUploads)
 				upload.transitionBeforeCopy(barrier);
+			//for (auto& upload : lightMapUploads)
+			//	upload.transitionBeforeCopy(barrier);
 			barrier.Execute(
 				uploadCommands.get(),
 				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -1781,11 +1884,17 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 		{
 			upload.copy(*uploadCommands);
 		}
+		//for (auto& upload : lightMapUploads)
+		//{
+		//	upload.copy(*uploadCommands);
+		//}
 		{
 			// barrier after texture copy
 			auto barrier = PipelineBarrier();
 			for (auto& [texture, upload] : textureUploads)
 				upload.transitionAfterCopy(barrier);
+			//for (auto& upload : lightMapUploads)
+			//	upload.transitionAfterCopy(barrier);
 			barrier.Execute(
 				uploadCommands.get(),
 				VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -1798,6 +1907,8 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 		vertUpload.copy(*uploadCommands);
 		surfIdxUpload.copy(*uploadCommands);
 		wedgeIdxUpload.copy(*uploadCommands);
+		//lightMapIndexUpload.copy(*uploadCommands);
+		lightsUpload.copy(*uploadCommands);
 		uploadCommands->end();
 
 		VulkanFence fence(Device.get());
@@ -1813,17 +1924,20 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 		vkWaitForFences(Device->device, 1, &fence.fence, VK_TRUE, UINT64_MAX);
 		debugf(TEXT("Vulkan: Upload finished"));
 
-		auto uploadedTextures = std::map<UTexture*, UploadedTexture>();
+		std::map<UTexture*, UploadedTexture> uploadedTextures;
 		std::vector<VulkanImageView*> allTextureViews;
 		for (auto& [texture, upload] : textureUploads)
 		{
 			allTextureViews.push_back(upload.imageView.get());
-			uploadedTextures[texture] = {
-				std::move(upload.deviceImage),
-				std::move(upload.imageView),
-				upload.textureIndex
-			};
+			uploadedTextures[texture] = upload.asUploaded();
 		}
+
+		std::vector<UploadedTexture> uploadedLightMaps;
+		//for (auto& upload : lightMapUploads)
+		//{
+		//	allTextureViews.push_back(upload.imageView.get());
+		//	uploadedLightMaps.push_back(upload.asUploaded());
+		//}
 
 		auto maxNumObjects = level->Actors.Num() * 4;
 		lastScene = LastScene{
@@ -1833,9 +1947,12 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 			std::move(vertUpload.deviceBuffer),
 			std::move(surfIdxUpload.deviceBuffer),
 			std::move(wedgeIdxUpload.deviceBuffer),
+			//std::move(lightMapIndexUpload.deviceBuffer),
+			std::move(lightsUpload.deviceBuffer),
 			std::move(modelPusher.modelBases),
 			std::move(modelPusher.meshBases),
 			std::move(uploadedTextures),
+			std::move(uploadedLightMaps),
 			maxNumObjects,
 			{
 				{
@@ -1861,13 +1978,15 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 				.AddBuffer(descriptorSet, 3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, perFrame.objectUpload.deviceBuffer.get())
 				.AddBuffer(descriptorSet, 4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lastScene->surfIdxBuffer.get())
 				.AddBuffer(descriptorSet, 5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lastScene->wedgeIdxBuffer.get())
-				.AddSampler(descriptorSet, 6, Samplers->Samplers[0].get())
-				.AddImageArray(descriptorSet, 7, allTextureViews, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+				//.AddBuffer(descriptorSet, 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lastScene->lightMapBuffer.get())
+				.AddBuffer(descriptorSet, 6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, lastScene->lightsBuffer.get())
+				.AddSampler(descriptorSet, 7, Samplers->Samplers[0].get())
+				.AddImageArray(descriptorSet, 8, allTextureViews, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 			perFrame.objectUploadCommands->begin(0);
 			perFrame.objectUpload.copy(*perFrame.objectUploadCommands);
 			PipelineBarrier()
-				.AddBuffer(perFrame.objectUpload.deviceBuffer.get(), VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_SHADER_READ_BIT )
+				.AddBuffer(perFrame.objectUpload.deviceBuffer.get(), VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_SHADER_READ_BIT)
 				.Execute(perFrame.objectUploadCommands.get(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT);
 			perFrame.objectUploadCommands->end();
 		}
@@ -1886,7 +2005,7 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 	}
 
 	auto oddEven = lastScene->oddEven;
-	auto defaultTextureIndex = lastScene->textureBuffers.at(scene->Viewport->Actor->Level->DefaultTexture).index;
+	auto defaultTextureIndex = lastScene->uploadedTextures.at(scene->Viewport->Actor->Level->DefaultTexture).index;
 	auto& perFrame = lastScene->perFrame[oddEven];
 	UINT actorIdx = 0;
 	{
@@ -1958,8 +2077,8 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 				for (int i = 0; i < mesh->Textures.Num(); i++) {
 					auto texture = mesh->GetTexture(i, actor);
 					if (texture) {
-						auto foundTexture = lastScene->textureBuffers.find(texture);
-						if (foundTexture == lastScene->textureBuffers.end()) {
+						auto foundTexture = lastScene->uploadedTextures.find(texture);
+						if (foundTexture == lastScene->uploadedTextures.end()) {
 							debugf(L"Vulkan: Texture %s@%p (index %d) for %s@%p not found", texture->GetFullName(), texture, i, actor->GetFullName(), actor);
 							throw std::runtime_error("Texture not found");
 						}
@@ -1974,7 +2093,7 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 
 				getVertexOffsetFromActor(mesh, actor, object);
 			}
-			
+
 			objectBuffer[actorIdx++] = object;
 		}
 	}

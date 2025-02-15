@@ -28,8 +28,25 @@ struct Surf
 {
 	FVector normal;
 	int texIdx;
+	UINT lightsIdx;
 };
 
+struct alignas(16) Light {
+	FVector pos;
+	UINT isLight; // 0 serves as a sentinel value to indicate the end of the light list
+	FVector color;
+	UINT pad2;
+};
+
+// GPU equivalent of FLightMapIndex
+struct LightMapIndex {
+	FVector pan;
+	UINT texIndex;
+	float uscale, vscale;
+	int pad[2];
+};
+
+static_assert(sizeof(LightMapIndex) == 32, "LightMapIndex size must be 32 bytes");
 
 struct alignas(16) Object {
 	mat4 xform;
@@ -37,7 +54,7 @@ struct alignas(16) Object {
 	UINT vertexOffset1;
 	UINT vertexOffset2;
 	float vertexLerp;
-	UINT pad;
+	UINT lightMapIndex; // index of a LightMapIndex
 	VkDrawIndirectCommand command;
 };
 
@@ -257,9 +274,12 @@ private:
 		std::unique_ptr<VulkanBuffer> vertBuffer;
 		std::unique_ptr<VulkanBuffer> surfIdxBuffer;
 		std::unique_ptr<VulkanBuffer> wedgeIdxBuffer;
+		//std::unique_ptr<VulkanBuffer> lightMapBuffer;
+		std::unique_ptr<VulkanBuffer> lightsBuffer;
 		std::map<UModel*, ModelBase> modelBases;
 		std::map<UMesh*, ModelBase> meshBases;
-		std::map<UTexture*, UploadedTexture> textureBuffers;
+		std::map<UTexture*, UploadedTexture> uploadedTextures;
+		std::vector<UploadedTexture> uploadedLightMaps;
 		int maxNumObjects;
 
 		PerFrame perFrame[2];
@@ -271,7 +291,7 @@ private:
 
 		std::optional<ModelBase> modelBaseForActor(const AActor* actor);
 	};
-	std::optional<LastScene> lastScene;
+	std::optional<LastScene> lastScene = std::nullopt;
 };
 
 inline void UVulkanRenderDevice::SetPipeline(VulkanPipeline* pipeline)

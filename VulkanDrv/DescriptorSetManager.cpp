@@ -17,7 +17,7 @@ DescriptorSetManager::~DescriptorSetManager()
 void DescriptorSetManager::CreateBindlessTextureSet()
 {
 	Textures.NewPool = DescriptorPoolBuilder()
-		.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 6 * 2)
+		.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 7 * 2)
 		.AddPoolSize(VK_DESCRIPTOR_TYPE_SAMPLER, 1 * 2)
 		.AddPoolSize(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MaxBindlessTextures * 2)
 		.MaxSets(2)
@@ -37,8 +37,12 @@ void DescriptorSetManager::CreateBindlessTextureSet()
 		.AddBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT)
 		// vert index buffer
 		.AddBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT)
-		.AddBinding(6, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.AddBinding(7, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MaxBindlessTextures, VK_SHADER_STAGE_FRAGMENT_BIT,
+		// light buffer
+		.AddBinding(6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+		// sampler
+		.AddBinding(7, VK_DESCRIPTOR_TYPE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+		// textures
+		.AddBinding(8, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MaxBindlessTextures, VK_SHADER_STAGE_FRAGMENT_BIT,
 			VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT)
 		.DebugName("NewLayout")
 		.Create(renderer->Device.get());
