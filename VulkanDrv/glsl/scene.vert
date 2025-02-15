@@ -21,7 +21,8 @@ struct Object {
 	uint vertOffset1;
 	uint vertOffset2;
 	float vertLerp;
-	uint pad[5];
+	float white;
+	uint pad[4];
 };
 
 layout(push_constant) uniform ScenePushConstants
@@ -39,6 +40,7 @@ layout(scalar, binding = 5) readonly buffer VertIdxBuffer{ uint wedgeIndices[]; 
 layout(location = 0) out vec3 outNormal;
 layout(location = 1) flat out uint outTexIndex;
 layout(location = 2) out vec2 outTexCoord;
+layout(location = 3) out float outWhite;
 
 void main()
 {
@@ -61,6 +63,7 @@ void main()
 	outNormal = normal;
 	outTexIndex = surf.texIdx < 0 ? obj.textures[-surf.texIdx - 1] : surf.texIdx;
 	outTexCoord = uv;
+	outWhite = obj.white;
 	gl_Position = objectToProjection * obj.xform * vec4(point, 1.0);
 	//gl_ClipDistance[0] = dot(nearClip, vec4(aPosition, 1.0));
 }

@@ -3,6 +3,7 @@
 #include "UVulkanRenderDevice.h"
 #include "CachedTexture.h"
 #include "UTF16.h"
+#include "bvh.h"
 
 IMPLEMENT_CLASS(UVulkanRenderDevice);
 
@@ -1556,6 +1557,91 @@ struct ModelPusher {
 		meshBases[mesh] = { wedgeIndexBase, numWedgeIndices };
 		debugf(L"Vulkan: %s@%p: Pushed %d surfs, %d wedges, %d verts and %d wedge indices, model starts at %d", mesh->GetFullName(), mesh, numSurfs, numWedges, numVerts, numWedgeIndices, wedgeIndexBase);
 	}
+
+	// Pushes a BVH as a bunch of tris so that we can visualize it
+	ModelBase pushBvh(bvh& bvh) {
+		const auto surfBase = surfs.size();
+		const auto wedgeBase = wedges.size();
+		const auto vertBase = verts.size();
+		const auto wedgeIndexBase = wedgeIndices.size();
+
+		// push a single surf (we don't really care about UVs), use default texture
+		surfs.push_back({ { 1, 0, 0 }, textureUploads.at(defaultTexture).textureIndex });
+
+		for (auto& node : bvh.nodes) {
+			if (node.isEmpty()) continue;
+
+			const auto nodeWedgeBase = wedges.size();
+			const auto nodeVertBase = verts.size();
+			const auto nodeWedgeIndexBase = wedgeIndices.size();
+
+			// add sixteen verts - bounding box corners + a bit of inset
+			auto inset = FVector(1, 1, 1);
+			auto min = node.min - inset;
+			auto max = node.max + inset ;
+			
+			auto insetMin = node.min + inset;
+			auto insetMax = node.max - inset;
+			verts.push_back({ { min.X, min.Y, min.Z } });
+			verts.push_back({ { min.X, min.Y, max.Z } });
+			verts.push_back({ { min.X, max.Y, min.Z } });
+			verts.push_back({ { min.X, max.Y, max.Z } });
+			verts.push_back({ { max.X, min.Y, min.Z } });
+			verts.push_back({ { max.X, min.Y, max.Z } });
+			verts.push_back({ { max.X, max.Y, min.Z } });
+			verts.push_back({ { max.X, max.Y, max.Z } });
+
+			verts.push_back({ { insetMin.X, insetMin.Y, insetMin.Z } });
+			verts.push_back({ { insetMin.X, insetMin.Y, insetMax.Z } });
+			verts.push_back({ { insetMin.X, insetMax.Y, insetMin.Z } });
+			verts.push_back({ { insetMin.X, insetMax.Y, insetMax.Z } });
+			verts.push_back({ { insetMax.X, insetMin.Y, insetMin.Z } });
+			verts.push_back({ { insetMax.X, insetMin.Y, insetMax.Z } });
+			verts.push_back({ { insetMax.X, insetMax.Y, insetMin.Z } });
+			verts.push_back({ { insetMax.X, insetMax.Y, insetMax.Z } });
+
+			// now add a wedge for each vert, UV doesn't really matter
+			for (int i = 0; i < 16; i++) {
+				wedges.push_back({ 0, 0, nodeVertBase + i });
+			}
+
+			// Now construct the edges. Each edge is two tris using two
+			// regular verts and two inset verts.
+			auto edge = [&](int a, int b) {
+				wedgeIndices.push_back(nodeWedgeBase + a);
+				wedgeIndices.push_back(nodeWedgeBase + b);
+				wedgeIndices.push_back(nodeWedgeBase + a + 8);
+				wedgeIndices.push_back(nodeWedgeBase + b);
+				wedgeIndices.push_back(nodeWedgeBase + b + 8);
+				wedgeIndices.push_back(nodeWedgeBase + a + 8);
+			};
+
+			edge(0, 1);
+			edge(0, 2);
+			edge(0, 4);
+			edge(1, 3);
+			edge(1, 5);
+			edge(2, 3);
+			edge(2, 6);
+			edge(3, 7);
+			edge(4, 5);
+			edge(4, 6);
+			edge(5, 7);
+			edge(6, 7);
+
+			// 12 edges is 24 tris, so we need to add 24 surf indices.
+			for (int i = 0; i < 24; i++) {
+				surfIndices.push_back(surfBase);
+			}
+		}
+
+		auto numSurfs = surfs.size() - surfBase;
+		auto numWedges = wedges.size() - wedgeBase;
+		auto numVerts = verts.size() - vertBase;
+		auto numWedgeIndices = wedgeIndices.size() - wedgeIndexBase;
+		debugf(L"Vulkan: BVH: Pushed %d surfs, %d wedges, %d verts and %d wedge indices, model starts at %d", numSurfs, numWedges, numVerts, numWedgeIndices, wedgeIndexBase);
+		return { wedgeIndexBase, numWedgeIndices };
+	}
 private:
 	int resolveTextureIndexForMesh(UMesh* mesh, int textureIndex) {
 		if (textureIndex < 0) {
@@ -1703,9 +1789,13 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 			textureUploads[texture] = StagedTextureUpload::Create(Device.get(), texture, textureUploads.size());;
 		}
 
+		auto levelBvh = buildBvh(*level->Model);
+
 		ModelPusher modelPusher(defaultTexture, textureUploads);
 
-		// count all surfs & verts
+		auto bvhModelbase = modelPusher.pushBvh(levelBvh);
+
+		// build all surfs, wedges & verts
 		for (auto model : models) {
 			modelPusher.pushModel(model, level);
 		}
@@ -1835,6 +1925,7 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 			std::move(wedgeIdxUpload.deviceBuffer),
 			std::move(modelPusher.modelBases),
 			std::move(modelPusher.meshBases),
+			bvhModelbase,
 			std::move(uploadedTextures),
 			maxNumObjects,
 			{
@@ -1898,11 +1989,26 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 			0,  // level draws with no vertex offset
 			0,  // same here
 			0,  // same here
-			{}, // pad
+			0,  // pad
 			VkDrawIndirectCommand{
 				levelModelBase.wedgeIndexCount,
 				1,
 				levelModelBase.wedgeIndexBase,
+				0
+			}
+		};
+
+		objectBuffer[actorIdx++] = {
+			mat4::identity(),
+			{},
+			0,
+			0,
+			0,
+			1,
+			VkDrawIndirectCommand{
+				lastScene->bvhModelBase.wedgeIndexCount,
+				1,
+				lastScene->bvhModelBase.wedgeIndexBase,
 				0
 			}
 		};
@@ -1944,7 +2050,7 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 				0,
 				0,
 				0,
-				{}, // pad
+				0,
 				VkDrawIndirectCommand{
 						modelBase->wedgeIndexCount,
 						1,

@@ -23,6 +23,7 @@
     <ClInclude Include="TextureUploader.h" />
     <ClInclude Include="UVkRender.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="bvh.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VulkanDrv.cpp" />
@@ -44,6 +45,7 @@
     <ClCompile Include="UploadManager.cpp" />
     <ClCompile Include="TextureUploader.cpp" />
     <ClCompile Include="UVkRender.cpp" />
+    <ClCompile Include="bvh.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\VulkanDrv.int" />

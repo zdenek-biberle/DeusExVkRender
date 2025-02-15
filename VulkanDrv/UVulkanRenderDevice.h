@@ -37,7 +37,7 @@ struct alignas(16) Object {
 	UINT vertexOffset1;
 	UINT vertexOffset2;
 	float vertexLerp;
-	UINT pad;
+	float white;
 	VkDrawIndirectCommand command;
 };
 
@@ -259,6 +259,7 @@ private:
 		std::unique_ptr<VulkanBuffer> wedgeIdxBuffer;
 		std::map<UModel*, ModelBase> modelBases;
 		std::map<UMesh*, ModelBase> meshBases;
+		ModelBase bvhModelBase;
 		std::map<UTexture*, UploadedTexture> textureBuffers;
 		int maxNumObjects;
 
