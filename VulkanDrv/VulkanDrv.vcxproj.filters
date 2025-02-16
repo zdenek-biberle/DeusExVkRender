@@ -23,6 +23,89 @@
     <ClInclude Include="TextureUploader.h" />
     <ClInclude Include="UVkRender.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="tinygltf.h" />
+    <ClInclude Include="libs\tiny_gltf.h">
+      <Filter>libs</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\json.hpp">
+      <Filter>libs</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\stb_image.h">
+      <Filter>libs</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\stb_image_write.h">
+      <Filter>libs</Filter>
+    </ClInclude>
+    <ClInclude Include="gltf.h" />
+    <ClInclude Include="libs\glm\common.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\exponential.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\ext.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\fwd.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\geometric.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\glm.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\integer.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\mat2x2.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\mat2x3.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\mat2x4.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\mat3x2.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\mat3x3.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\mat3x4.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\mat4x2.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\mat4x3.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\mat4x4.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\matrix.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\packing.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\trigonometric.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\vec2.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\vec3.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\vec4.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\glm\vector_relational.hpp">
+      <Filter>libs\glm</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VulkanDrv.cpp" />
@@ -44,6 +127,8 @@
     <ClCompile Include="UploadManager.cpp" />
     <ClCompile Include="TextureUploader.cpp" />
     <ClCompile Include="UVkRender.cpp" />
+    <ClCompile Include="tinygltf.cpp" />
+    <ClCompile Include="gltf.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\VulkanDrv.int" />
@@ -60,6 +145,12 @@
   <ItemGroup>
     <Filter Include="glsl">
       <UniqueIdentifier>{7f1aef06-c056-490f-aa5c-ec05ed83bd3b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs">
+      <UniqueIdentifier>{048b78fc-9db0-48bc-9cf3-19f2e66dcf2b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libs\glm">
+      <UniqueIdentifier>{a1790367-3c4c-4a52-898b-2e9384840c7d}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -3,6 +3,7 @@
 #include "UVulkanRenderDevice.h"
 #include "CachedTexture.h"
 #include "UTF16.h"
+#include "gltf.h"
 
 IMPLEMENT_CLASS(UVulkanRenderDevice);
 
@@ -1753,6 +1754,7 @@ void UVulkanRenderDevice::DrawWorld(FSceneNode* scene)
 
 		std::set<UModel*> models;
 		//models.insert(level->Model);
+		save_model_to_gltf(level->Model);
 		for (TObjectIterator<UModel> modelIt; modelIt; ++modelIt) {
 			models.insert(*modelIt);
 		}

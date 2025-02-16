@@ -1,6 +1,7 @@
 /.vs
 /Build
 /VulkanDrv/*.user
+/VulkanDrv/libs
 /HRTFAudio/*.user
 /HRTFAudio/*.aps
 /ShaderCompiler/*.user
