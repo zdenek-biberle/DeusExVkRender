@@ -53,7 +53,9 @@ public:
 	static const int MaxBindlessTextures = 16536;
 
 	VulkanDescriptorSetLayout* GetNewLayout() { return Textures.NewLayout.get(); }
-	VulkanDescriptorSet* GetNewSet(bool oddEven) { return Textures.NewSet[oddEven].get(); }
+	VulkanDescriptorSetLayout* GetMeshLayout() { return Textures.MeshLayout.get(); }
+	VulkanDescriptorSet* GetNewSet(bool odd_even) { return Textures.NewSet[odd_even].get(); }
+	VulkanDescriptorSet* GetMeshletSet(bool odd_even) { return Textures.MeshletSet[odd_even].get(); }
 
 private:
 	void CreateBindlessTextureSet();
@@ -65,5 +67,7 @@ private:
 		std::unique_ptr<VulkanDescriptorPool> NewPool;
 		std::unique_ptr<VulkanDescriptorSetLayout> NewLayout;
 		std::unique_ptr<VulkanDescriptorSet> NewSet[2];
+		std::unique_ptr<VulkanDescriptorSetLayout> MeshLayout;
+		std::unique_ptr<VulkanDescriptorSet> MeshletSet[2];
 	} Textures;
 };

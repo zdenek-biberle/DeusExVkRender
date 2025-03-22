@@ -53,6 +53,11 @@ IDR_SCENE_VERT          RCDATA                    "glsl\\scene.vert"
 
 IDR_SCENE_FRAG          RCDATA                    "glsl\\scene.frag"
 
+IDR_SCENE_MESH_VERT		  RCDATA                    "glsl\\scene-mesh.vert"
+
+IDR_SCENE_MESH_FRAG		  RCDATA                    "glsl\\scene-mesh.frag"
+
+
 #endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
 

@@ -24,6 +24,22 @@ ShaderManager::ShaderManager(UVulkanRenderDevice* renderer) : renderer(renderer)
 		.Create("newFragmentShader", renderer->Device.get());
 	unguard;
 
+	guard(ShaderManager::ShaderManager::mesh_vert);
+	MeshScene.VertexShader = ShaderBuilder()
+		.Type(ShaderType::Vertex)
+		.AddSource("scene-mesh.vert", readShader(IDR_SCENE_MESH_VERT))
+		.DebugName("meshVertexShader")
+		.Create("meshVertexShader", renderer->Device.get());
+	unguard;
+
+	guard(ShaderManager::ShaderManager::mesh_frag);
+	MeshScene.FragmentShader = ShaderBuilder()
+		.Type(ShaderType::Fragment)
+		.AddSource("scene-mesh.frag", readShader(IDR_SCENE_MESH_FRAG))
+		.DebugName("meshFragmentShader")
+		.Create("meshFragmentShader", renderer->Device.get());
+	unguard;
+
 	SceneBindless.VertexShader = ShaderBuilder()
 		.Type(ShaderType::Vertex)
 		.AddSource("shaders/Scene.vert", LoadShaderCode("shaders/Scene.vert", "#extension GL_EXT_nonuniform_qualifier : enable\r\n#define BINDLESS_TEXTURES"))

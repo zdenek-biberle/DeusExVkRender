@@ -123,6 +123,11 @@ void VulkanDevice::CreateDevice()
 		*next = &EnabledFeatures.DescriptorIndexing;
 		next = &EnabledFeatures.DescriptorIndexing.pNext;
 	}
+	if (SupportsExtension(VK_KHR_8BIT_STORAGE_EXTENSION_NAME))
+	{
+		*next = &EnabledFeatures._8BitStorage;
+		next = &EnabledFeatures._8BitStorage.pNext;
+	}
 
 	VkResult result = vkCreateDevice(PhysicalDevice.Device, &deviceCreateInfo, nullptr, &device);
 	CheckVulkanError(result, "Could not create vulkan device");

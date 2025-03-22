@@ -104,7 +104,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DeusExDebug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(SolutionDir)Build\$(Configuration)\</OutDir>
+    <OutDir>..\..\..\..\..\..\Program Files %28x86%29\Steam\steamapps\common\Deus Ex\System</OutDir>
     <IntDir>$(SolutionDir)Build\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UnrealGoldDebug|Win32'">
@@ -140,6 +140,7 @@
       <ExceptionHandling>Async</ExceptionHandling>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Precomp.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -161,6 +162,7 @@
       <ExceptionHandling>Async</ExceptionHandling>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Precomp.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -230,7 +232,7 @@
       <ExceptionHandling>Async</ExceptionHandling>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Precomp.h</PrecompiledHeaderFile>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <Optimization>Disabled</Optimization>
     </ClCompile>
     <Link>
@@ -275,33 +277,6 @@
     <ClInclude Include="FramebufferManager.h" />
     <ClInclude Include="gltf.h" />
     <ClInclude Include="halffloat.h" />
-    <ClInclude Include="libs\glm\common.hpp" />
-    <ClInclude Include="libs\glm\exponential.hpp" />
-    <ClInclude Include="libs\glm\ext.hpp" />
-    <ClInclude Include="libs\glm\fwd.hpp" />
-    <ClInclude Include="libs\glm\geometric.hpp" />
-    <ClInclude Include="libs\glm\glm.hpp" />
-    <ClInclude Include="libs\glm\integer.hpp" />
-    <ClInclude Include="libs\glm\mat2x2.hpp" />
-    <ClInclude Include="libs\glm\mat2x3.hpp" />
-    <ClInclude Include="libs\glm\mat2x4.hpp" />
-    <ClInclude Include="libs\glm\mat3x2.hpp" />
-    <ClInclude Include="libs\glm\mat3x3.hpp" />
-    <ClInclude Include="libs\glm\mat3x4.hpp" />
-    <ClInclude Include="libs\glm\mat4x2.hpp" />
-    <ClInclude Include="libs\glm\mat4x3.hpp" />
-    <ClInclude Include="libs\glm\mat4x4.hpp" />
-    <ClInclude Include="libs\glm\matrix.hpp" />
-    <ClInclude Include="libs\glm\packing.hpp" />
-    <ClInclude Include="libs\glm\trigonometric.hpp" />
-    <ClInclude Include="libs\glm\vec2.hpp" />
-    <ClInclude Include="libs\glm\vec3.hpp" />
-    <ClInclude Include="libs\glm\vec4.hpp" />
-    <ClInclude Include="libs\glm\vector_relational.hpp" />
-    <ClInclude Include="libs\json.hpp" />
-    <ClInclude Include="libs\stb_image.h" />
-    <ClInclude Include="libs\stb_image_write.h" />
-    <ClInclude Include="libs\tiny_gltf.h" />
     <ClInclude Include="mat.h" />
     <ClInclude Include="Precomp.h" />
     <ClInclude Include="quaternion.h" />
@@ -341,6 +316,7 @@
     <ClCompile Include="SamplerManager.cpp" />
     <ClCompile Include="SceneTextures.cpp" />
     <ClCompile Include="ShaderManager.cpp" />
+    <ClInclude Include="types.h" />
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="TextureUploader.cpp" />
     <ClCompile Include="tinygltf.cpp" />
@@ -352,6 +328,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\VulkanDrv.int" />
+    <None Include="glsl\scene-mesh.frag" />
+    <None Include="glsl\scene-mesh.vert" />
     <None Include="glsl\scene.frag" />
     <None Include="glsl\scene.vert" />
   </ItemGroup>

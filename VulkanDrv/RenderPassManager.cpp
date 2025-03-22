@@ -25,6 +25,12 @@ void RenderPassManager::CreateSceneBindlessPipelineLayout()
 		.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(NewScenePushConstants))
 		.DebugName("NewScenePipelineLayout")
 		.Create(renderer->Device.get());
+
+	Scene.MeshletPipelineLayout = PipelineLayoutBuilder()
+		.AddSetLayout(renderer->DescriptorSets->GetMeshLayout())
+		.AddPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(NewScenePushConstants))
+		.DebugName("MeshPipelineLayout")
+		.Create(renderer->Device.get());
 }
 
 void RenderPassManager::BeginScene(VulkanCommandBuffer* cmdbuffer, float r, float g, float b, float a)
@@ -271,6 +277,19 @@ void RenderPassManager::CreatePipelines()
 		.RenderPass(Scene.RenderPass.get())
 		.AddColorBlendAttachment(ColorBlendAttachmentBuilder().BlendMode(VK_BLEND_OP_ADD, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA).Create())
 		//.AddColorBlendAttachment(ColorBlendAttachmentBuilder().Create())
+		.DepthStencilEnable(true, true, false)
+		.Create(renderer->Device.get());
+
+	Scene.MeshletPipeline = GraphicsPipelineBuilder()
+		.AddVertexShader(renderer->Shaders->MeshScene.VertexShader.get())
+		.AddFragmentShader(renderer->Shaders->MeshScene.FragmentShader.get())
+		.Viewport(0.0f, 0.0f, (float)renderer->Textures->Scene->Width, (float)renderer->Textures->Scene->Height)
+		.Scissor(0, 0, renderer->Textures->Scene->Width, renderer->Textures->Scene->Height)
+		.Topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+		.Cull(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
+		.Layout(Scene.MeshletPipelineLayout.get())
+		.RenderPass(Scene.RenderPass.get())
+		.AddColorBlendAttachment(ColorBlendAttachmentBuilder().BlendMode(VK_BLEND_OP_ADD, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA).Create())
 		.DepthStencilEnable(true, true, false)
 		.Create(renderer->Device.get());
 }

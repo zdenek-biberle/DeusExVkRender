@@ -29,6 +29,9 @@ public:
 
 		std::unique_ptr<VulkanPipelineLayout> NewPipelineLayout;
 		std::unique_ptr<VulkanPipeline> NewPipeline;
+
+		std::unique_ptr<VulkanPipelineLayout> MeshletPipelineLayout;
+		std::unique_ptr<VulkanPipeline> MeshletPipeline;
 	} Scene;
 
 private:

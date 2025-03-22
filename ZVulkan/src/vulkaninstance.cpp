@@ -229,6 +229,11 @@ std::vector<VulkanPhysicalDevice> VulkanInstance::GetPhysicalDevices(VkInstance 
 				*next = &dev.Features.DescriptorIndexing;
 				next = &dev.Features.DescriptorIndexing.pNext;
 			}
+			if (checkForExtension(VK_KHR_8BIT_STORAGE_EXTENSION_NAME))
+			{
+				*next = &dev.Features._8BitStorage;
+				next = &dev.Features._8BitStorage.pNext;
+			}
 
 			vkGetPhysicalDeviceFeatures2(dev.Device, &deviceFeatures2);
 			dev.Features.Features = deviceFeatures2.features;
@@ -236,6 +241,7 @@ std::vector<VulkanPhysicalDevice> VulkanInstance::GetPhysicalDevices(VkInstance 
 			dev.Features.AccelerationStructure.pNext = nullptr;
 			dev.Features.RayQuery.pNext = nullptr;
 			dev.Features.DescriptorIndexing.pNext = nullptr;
+			dev.Features._8BitStorage.pNext = nullptr;
 		}
 		else
 		{

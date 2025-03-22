@@ -140,7 +140,14 @@ void dumpTexture(UTexture* texture, UTexture* stop, int indent) {
 
 // Major rendering functions.
 void UVkRender::DrawWorld(FSceneNode* Frame) {
-	static_cast<UVulkanRenderDevice*>(Frame->Viewport->RenDev)->DrawWorld(Frame);
+	auto rendev = Frame->Viewport->RenDev;
+	if (rendev->IsA(UVulkanRenderDevice::StaticClass())) {
+		static_cast<UVulkanRenderDevice*>(rendev)->DrawWorld(Frame);
+	}
+	else {
+		debugf(L"UVkRender::DrawWorld: Render device is not Vulkan");
+		throw std::runtime_error("Render device is not Vulkan");
+	}
 
 	auto model = Frame->Level->Model;
 

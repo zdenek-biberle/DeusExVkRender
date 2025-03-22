@@ -48,6 +48,12 @@ public:
 		std::unique_ptr<VulkanShader> FragmentShader;
 	} NewScene;
 
+	struct MeshSceneShaders
+	{
+		std::unique_ptr<VulkanShader> VertexShader;
+		std::unique_ptr<VulkanShader> FragmentShader;
+	} MeshScene;;
+
 	static std::string LoadShaderCode(const std::string& filename, const std::string& defines = {});
 
 private:

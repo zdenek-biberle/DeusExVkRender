@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Precomp.h"
+#include <optional>
 #include "CommandBufferManager.h"
 #include "BufferManager.h"
 #include "DescriptorSetManager.h"
@@ -11,54 +13,9 @@
 #include "UploadManager.h"
 #include "vec.h"
 #include "mat.h"
+#include "types.h"
 
 class CachedTexture;
-
-struct Vertex
-{
-	FVector pos;
-};
-
-struct Wedge {
-	float u, v;
-	UINT vertIndex;
-};
-
-struct Surf
-{
-	FVector normal;
-	int texIdx;
-	UINT lightsIdx;
-};
-
-struct alignas(16) Light {
-	FVector pos;
-	UINT isLight; // 0 serves as a sentinel value to indicate the end of the light list
-	FVector color;
-	UINT pad2;
-};
-
-// GPU equivalent of FLightMapIndex
-struct LightMapIndex {
-	FVector pan;
-	UINT texIndex;
-	float uscale, vscale;
-	int pad[2];
-};
-
-static_assert(sizeof(LightMapIndex) == 32, "LightMapIndex size must be 32 bytes");
-
-struct alignas(16) Object {
-	mat4 xform;
-	UINT textures[8];
-	UINT vertexOffset1;
-	UINT vertexOffset2;
-	float vertexLerp;
-	UINT lightMapIndex; // index of a LightMapIndex
-	VkDrawIndirectCommand command;
-};
-
-static_assert(sizeof(Object) == 128, "Object size must be 128 bytes");
 
 struct ModelBase {
 	UINT wedgeIndexBase;
@@ -68,12 +25,12 @@ struct ModelBase {
 template<typename T>
 struct StagedUpload
 {
-	std::unique_ptr<VulkanBuffer> stagingBuffer;
-	std::unique_ptr<VulkanBuffer> deviceBuffer;
+	std::unique_ptr<VulkanBuffer> staging_buffer;
+	std::unique_ptr<VulkanBuffer> device_buffer;
 
-	static StagedUpload<T> create(VulkanDevice* device, size_t count, const char* debugName, VkBufferUsageFlags extraUsageFlags = 0) {
-		auto bufferSize = count * sizeof(T);
-		auto stagingBuffer = BufferBuilder()
+	static StagedUpload<T> create(VulkanDevice* device, size_t count, const char* debugName, VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) {
+		auto buffer_size = count * sizeof(T);
+		auto staging_buffer = BufferBuilder()
 			.Usage(
 				VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 				VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
@@ -81,39 +38,45 @@ struct StagedUpload
 			/*.MemoryType(
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)*/
-			.Size(bufferSize)
+			.Size(buffer_size)
 			.MinAlignment(16)
 			.DebugName("StagingBuffer")
 			.Create(device);
 
-		auto deviceBuffer = BufferBuilder()
+		auto device_buffer = BufferBuilder()
 			.Usage(
-				VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | extraUsageFlags,
+				VK_BUFFER_USAGE_TRANSFER_DST_BIT | usageFlags,
 				VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE)
-			.Size(bufferSize)
+			.Size(buffer_size)
 			.MinAlignment(16)
 			.DebugName(debugName)
 			.Create(device);
 
-		return { std::move(stagingBuffer), std::move(deviceBuffer) };
+		return { std::move(staging_buffer), std::move(device_buffer) };
+	}
+
+	static StagedUpload<T> create(VulkanDevice* device, const std::vector<T>& data, const char* debugName, VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) {
+		auto upload = create(device, data.size(), debugName, usageFlags);
+		upload.fill_from(data);
+		return upload;
 	}
 
 	T* map() {
-		return static_cast<T*>(stagingBuffer->Map(0, stagingBuffer->size));
+		return static_cast<T*>(staging_buffer->Map(0, staging_buffer->size));
 	}
 
 	void unmap() {
-		stagingBuffer->Unmap();
+		staging_buffer->Unmap();
 	}
 
-	void fillFrom(const std::vector<T>& data) {
+	void fill_from(const std::vector<T>& data) {
 		auto buffer = map();
 		memcpy(buffer, data.data(), data.size() * sizeof(T));
 		unmap();
 	}
 
 	void copy(VulkanCommandBuffer& commands) {
-		commands.copyBuffer(stagingBuffer.get(), deviceBuffer.get());
+		commands.copyBuffer(staging_buffer.get(), device_buffer.get());
 	}
 };
 
@@ -262,36 +225,43 @@ private:
 	size_t SceneIndexPos = 0;
 
 	struct PerFrame {
-		StagedUpload<Object> objectUpload;
+		StagedUpload<Object> object_upload;
 		std::unique_ptr<VulkanCommandBuffer> objectUploadCommands;
 	};
 
 	struct LastScene
 	{
 		ULevel* level;
-		std::unique_ptr<VulkanBuffer> surfBuffer;
-		std::unique_ptr<VulkanBuffer> wedgeBuffer;
-		std::unique_ptr<VulkanBuffer> vertBuffer;
-		std::unique_ptr<VulkanBuffer> surfIdxBuffer;
-		std::unique_ptr<VulkanBuffer> wedgeIdxBuffer;
+		std::unique_ptr<VulkanBuffer> surf_buffer;
+		std::unique_ptr<VulkanBuffer> wedge_buffer;
+		std::unique_ptr<VulkanBuffer> vert_buffer;
+		std::unique_ptr<VulkanBuffer> surf_idx_buffer;
+		std::unique_ptr<VulkanBuffer> wedge_idx_buffer;
 		//std::unique_ptr<VulkanBuffer> lightMapBuffer;
-		std::unique_ptr<VulkanBuffer> lightsBuffer;
-		std::map<UModel*, ModelBase> modelBases;
-		std::map<UMesh*, ModelBase> meshBases;
-		std::map<UTexture*, UploadedTexture> uploadedTextures;
-		std::vector<UploadedTexture> uploadedLightMaps;
-		int maxNumObjects;
+		std::unique_ptr<VulkanBuffer> lights_buffer;
 
-		PerFrame perFrame[2];
-		bool oddEven;
+		std::unique_ptr<VulkanBuffer> meshlet_buffer;
+		std::unique_ptr<VulkanBuffer> meshlet_vertex_buffer;
+		std::unique_ptr<VulkanBuffer> meshlet_vert_idx_buffer;
+		std::unique_ptr<VulkanBuffer> meshlet_local_idx_buffer;
+		std::unique_ptr<VulkanBuffer> meshlet_draw_commands_buffer;
+		u32 num_meshlet_draw_commands;
 
-		std::set<UModel*> missingModels;
-		std::set<UMesh*> missingMeshes;
-		std::set<UTexture*> missingTextures;
+		std::map<UModel*, ModelBase> model_bases;
+		std::map<UMesh*, ModelBase> mesh_bases;
+		std::map<UTexture*, u32> texture_to_idx;
+		std::vector<UploadedTexture> uploaded_textures;
+		int max_num_objects;
 
-		std::optional<ModelBase> modelBaseForActor(const AActor* actor);
+		PerFrame per_frame[2];
+		bool odd_even;
+
+		std::set<UModel*> missing_models;
+		std::set<UMesh*> missing_meshes;
+
+		std::optional<ModelBase> model_base_for_actor(const AActor* actor);
 	};
-	std::optional<LastScene> lastScene = std::nullopt;
+	std::optional<LastScene> last_scene = std::nullopt;
 };
 
 inline void UVulkanRenderDevice::SetPipeline(VulkanPipeline* pipeline)

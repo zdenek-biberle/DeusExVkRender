@@ -1,9 +1,12 @@
 /.vs
 /Build
 /VulkanDrv/*.user
-/VulkanDrv/libs
+/libs
 /HRTFAudio/*.user
 /HRTFAudio/*.aps
 /ShaderCompiler/*.user
 /Thirdparty/UnrealTournamentSDK
 /D3D11Drv/*.user
+/MeshProcessing/Debug
+/MeshProcessing/Release
+/MeshProcessing/*.user

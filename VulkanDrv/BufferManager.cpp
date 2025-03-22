@@ -14,6 +14,7 @@ BufferManager::~BufferManager()
 {
 	if (SceneVertices) { SceneVertexBuffer->Unmap(); SceneVertices = nullptr; }
 	if (SceneIndexes) { SceneIndexBuffer->Unmap(); SceneIndexes = nullptr; }
+	if (UploadData) { UploadBuffer->Unmap(); UploadData = nullptr; }
 }
 
 void BufferManager::CreateSceneVertexBuffer()
@@ -31,6 +32,7 @@ void BufferManager::CreateSceneVertexBuffer()
 		.DebugName("SceneVertexBuffer")
 		.Create(renderer->Device.get());
 
+	assert(!SceneVertices);
 	SceneVertices = (SceneVertex*)SceneVertexBuffer->Map(0, size);
 }
 
@@ -49,6 +51,7 @@ void BufferManager::CreateSceneIndexBuffer()
 		.DebugName("SceneIndexBuffer")
 		.Create(renderer->Device.get());
 
+	assert(!SceneIndexes);
 	SceneIndexes = (uint32_t*)SceneIndexBuffer->Map(0, size);
 }
 
@@ -65,5 +68,6 @@ void BufferManager::CreateUploadBuffer()
 		.DebugName("UploadBuffer")
 		.Create(renderer->Device.get());
 
+	assert(!UploadData);
 	UploadData = (uint8_t*)UploadBuffer->Map(0, UploadBufferSize);
 }

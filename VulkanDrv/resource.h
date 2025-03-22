@@ -2,8 +2,10 @@
 // Microsoft Visual C++ generated include file.
 // Used by glsl.rc
 //
-#define IDR_SCENE_VERT                  3
-#define IDR_SCENE_FRAG                  6
+#define IDR_SCENE_VERT                  1
+#define IDR_SCENE_FRAG                  2
+#define IDR_SCENE_MESH_VERT             3
+#define IDR_SCENE_MESH_FRAG             4
 
 // Next default values for new objects
 // 

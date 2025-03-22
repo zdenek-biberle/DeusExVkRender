@@ -16,8 +16,6 @@ enum class clipzrange
 
 struct mat4
 {
-	mat4() = default;
-
 	static mat4 null();
 	static mat4 identity();
 	static mat4 from_values(float *matrix);
