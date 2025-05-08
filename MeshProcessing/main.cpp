@@ -329,9 +329,6 @@ int main(int argc, char** argv) {
 			// TODO: meshopt_optimizeMeshlet? other optimizations?
 
 			for (auto& m : meshlets) {
-
-				std::cout << "Meshlet has " << m.vertex_count << " vertices and " << m.triangle_count << " triangles" << std::endl;
-
 				const auto index_of_first_unpacked_index_for_meshlet = unpacked_index_buffer.size();
 				for (int index_of_local_index = 0; index_of_local_index < m.triangle_count * 3; ++index_of_local_index) {
 					const auto meshlet_local_index = meshlet_local_indices.at(m.triangle_offset + index_of_local_index);

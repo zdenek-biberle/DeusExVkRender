@@ -31,6 +31,8 @@ static glm::vec3 decode_vector(const glm::vec3& vector) {
 	return { vector.x, vector.z, vector.y };
 }
 
+static const std::string our_extension_name = "NONE_deus_ex_vk_render_mesh";
+
 void save_model_to_gltf(const UModel* model) {
 	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> string_converter;
 	auto filename = "gltf/" + string_converter.to_bytes(model->GetFullName()) + ".gltf";
@@ -181,7 +183,7 @@ void save_model_to_gltf(const UModel* model) {
 				const auto point = model->Points(model->Verts(node.iVertPool + j).pVertex);
 
 				const auto encoded_point = encode_point(point);
-				bounding_box += { encoded_point.x, encoded_point.b, encoded_point.z };
+				bounding_box += { encoded_point.x, encoded_point.y, encoded_point.z };
 				vertices.push_back(output_vertex{
 					encoded_point,
 					encoded_normal,
@@ -245,20 +247,48 @@ void save_model_to_gltf(const UModel* model) {
 	node.mesh = 0;
 	gltf.nodes.push_back(std::move(node));
 
+	std::set<const AActor*> lights;
+	for (int i = 0; i < model->Lights.Num(); i++) {
+		auto light = model->Lights(i);
+		if (light != nullptr && light->LightType != LT_None && light->LightBrightness != 0)
+			lights.insert(model->Lights(i));
+	}
+
+	for (auto light : lights) {
+		tinygltf::Light gltf_light;
+		gltf_light.name = string_converter.to_bytes(light->GetFullName());
+		auto color = FGetHSV(light->LightHue, light->LightSaturation, 255);
+		gltf_light.color = { color.X, color.Y, color.Z }; // TODO: maybe not correct
+		gltf_light.intensity = light->LightBrightness * 2000; // TODO: definitely not correct
+		gltf_light.type = "point"; // TODO: actual types
+
+		tinygltf::Node light_node;
+		light_node.light = gltf.lights.size();
+		light_node.name = gltf_light.name;
+		auto encoded_position = encode_point(light->Location);
+		light_node.translation = { encoded_position.x, encoded_position.y, encoded_position.z };
+
+		gltf.lights.push_back(std::move(gltf_light));
+		gltf.nodes.push_back(std::move(light_node));
+	}
+
 	tinygltf::Scene scene;
 	scene.name = string_converter.to_bytes(model->GetFullName());
-	scene.nodes.push_back(0);
+
+	for (int node_idx = 0; node_idx < gltf.nodes.size(); node_idx++) {
+		scene.nodes.push_back(node_idx);
+	}
+
 	gltf.scenes.push_back(std::move(scene));
 
 	gltf.defaultScene = 0;
+	gltf.extensionsUsed.push_back("KHR_lights_punctual");
 
 	tinygltf::TinyGLTF gltf_writer;
 	if (!gltf_writer.WriteGltfSceneToFile(&gltf, filename, false, false, true, false)) {
 		throw std::runtime_error("Failed to write gltf file");
 	}
 }
-
-static const std::string our_extension_name = "NONE_deus_ex_vk_render_mesh";
 
 std::optional<ModelReplacement> load_replacement_for_model(const UModel* model) {
 	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> string_converter;
